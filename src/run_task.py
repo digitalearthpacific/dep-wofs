@@ -1,4 +1,5 @@
-from typing import List, Union
+from typing_extensions import Annotated
+from typing import List, Tuple, Union
 
 import geopandas as gpd
 import typer
@@ -80,9 +81,9 @@ class WofsLandsatProcessor(LandsatProcessor):
 
 
 def main(
-    area_index: List[int],
-    datetime: str,
-    version: str,
+    area_index: List[str],
+    datetime: Annotated[str, typer.Option()],
+    version: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
 ) -> None:
     aoi_by_tile = (
@@ -90,7 +91,7 @@ def main(
             "https://deppcpublicstorage.blob.core.windows.net/output/aoi/aoi_split_by_landsat_pathrow.gpkg"
         )
         .set_index(["PATH", "ROW"], drop=False)
-        .loc[area_index]
+        .loc[tuple(area_index)]
     )
 
     prefix = f"{dataset_id}/{version}"
@@ -112,7 +113,7 @@ def main(
         prefix=prefix,
         convert_to_int16=True,
         overwrite=False,
-        output_value_multiplier=10000,
+        output_value_multiplier=100,
         extra_attrs=dict(dep_version=version),
     )
     logger = CsvLogger(
@@ -123,7 +124,6 @@ def main(
         header="time|index|status|paths|comment\n",
     )
 
-    breakpoint()
     run_by_area(
         areas=aoi_by_tile,
         loader=loader,
