@@ -119,7 +119,7 @@ def main(
         name=dataset_id,
         container_client=get_container_client(),
         path=get_log_path(dataset_id, version, datetime),
-        overwrite=True,
+        overwrite=False,
         header="time|index|status|paths|comment\n",
     )
 
