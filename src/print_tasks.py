@@ -1,23 +1,15 @@
 from itertools import product
-import os
-from typing import List
 
-# to silence warning
-os.environ["USE_PYGEOS"] = "0"
-import geopandas as gpd
 import typer
-
-from dep_tools.utils import get_container_client, scale_and_offset
-
-from azure_logger import CsvLogger, get_log_path, filter_by_log
+from azure_logger import CsvLogger, filter_by_log, get_log_path
+from dep_tools.utils import get_container_client
+from grid import grid
 
 
 def main(
     dataset_id: str = "wofs", version: str = "21Aug2023", years=range(2013, 2024)
 ) -> None:
-    aoi_by_tile = gpd.read_file(
-        "https://deppcpublicstorage.blob.core.windows.net/output/aoi/aoi_split_by_landsat_pathrow.gpkg"
-    ).set_index(["PATH", "ROW"], drop=False)
+    aoi_by_tile = grid
 
     prefix = f"{dataset_id}/{version}"
     logger = CsvLogger(

@@ -1,7 +1,5 @@
 from typing_extensions import Annotated
-from typing import List
 
-import geopandas as gpd
 import typer
 from xarray import DataArray
 
@@ -83,8 +81,8 @@ class WofsLandsatProcessor(LandsatProcessor):
 
 
 def main(
-    region_code: str,
-    region_index: str,
+    region_code: Annotated[str, typer.Option()],
+    region_index: Annotated[str, typer.Option()],
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
