@@ -4,4 +4,3 @@ git+https://github.com/jessjaco/azure-logger.git
 
 --no-binary gdal
 --no-binary rasterio
---no-binary shapely
