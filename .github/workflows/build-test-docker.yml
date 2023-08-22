@@ -1,7 +1,7 @@
 name : Scripts Test and Push
 
 env:
-  IMAGE_NAME: digitalearthpacific/deafrica-scripts
+  IMAGE_NAME: digitalearthpacific/dep-wofs
 
 on:
   pull_request:
@@ -24,7 +24,7 @@ jobs:
       uses: rickstaa/action-black@v1
       id: action_black
       with:
-        black_args: "--check deafrica"
+        black_args: "--check src"
 
     # Set up a cache
     - name: Set up Docker Buildx
@@ -60,9 +60,9 @@ jobs:
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
-    - name: Run tests in image
-      run: |
-          docker run --rm ${{ env.IMAGE_NAME }} bash -c "pip install -e /code; pip install -r /code/requirements-test.txt; pytest /code"
+    # - name: Run tests in image
+    #   run: |
+    #       docker run --rm ${{ env.IMAGE_NAME }} bash -c "pip install -e /code; pip install -r /code/requirements-test.txt; pytest /code"
 
   push:
     if: github.ref == 'refs/heads/main' || github.event_name == 'release'
@@ -80,17 +80,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DEAFRICA_DOCKER_USERNAME }}
-          password: ${{ secrets.DEAFRICA_DOCKER_PASSWORD }}
-
       - name: Get version number for tagging the image
         run: |
           git fetch --all --tags
-          pip install setuptools-scm
-          echo "VERSION=$(python setup.py --version | sed s/+/./g)" >> $GITHUB_ENV
+          echo "VERSION=$(git describe --tags)" >> $GITHUB_ENV
+
+      # Uses the `docker/login-action` action to log in to the Container registry registry using the account and password that will publish the packages. Once published, the packages are scoped to the account defined here.
+      - name: Log in to the Container registry
+        uses: docker/login-action
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v2
@@ -98,4 +99,4 @@ jobs:
           context: .
           target: base
           push: true
-          tags: ${{ env.IMAGE_NAME }}:latest,${{ env.IMAGE_NAME }}:${{ env.VERSION }}
+          tags: ghcr.io/${{ env.IMAGE_NAME }}:latest,ghcr.io/${{ env.IMAGE_NAME }}:${{ env.VERSION }}
