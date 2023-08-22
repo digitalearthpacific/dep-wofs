@@ -1,16 +1,18 @@
 from typing_extensions import Annotated
-from typing import List, Tuple, Union
+from typing import List
 
 import geopandas as gpd
 import typer
 from xarray import DataArray
 
-from azure_logger import CsvLogger, get_log_path, filter_by_log
+from azure_logger import CsvLogger, get_log_path
 from dep_tools.runner import run_by_area
 from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.processors import LandsatProcessor
 from dep_tools.utils import get_container_client, scale_and_offset
 from dep_tools.writers import AzureXrWriter
+
+from grid import grid
 
 
 def wofs(tm_da: DataArray) -> DataArray:
@@ -86,17 +88,12 @@ def main(
     version: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
 ) -> None:
-    aoi_by_tile = (
-        gpd.read_file(
-            "https://deppcpublicstorage.blob.core.windows.net/output/aoi/aoi_split_by_landsat_pathrow.gpkg"
-        )
-        .set_index(["PATH", "ROW"], drop=False)
-        .loc[tuple(area_index)]
-    )
+    cell = grid.loc[[tuple(area_index)]]
 
     prefix = f"{dataset_id}/{version}"
 
     loader = LandsatOdcLoader(
+        epsg=8859,
         datetime=datetime,
         dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         odc_load_kwargs=dict(
@@ -108,28 +105,30 @@ def main(
 
     processor = WofsLandsatProcessor(dilate_mask=True)
     writer = AzureXrWriter(
+        prefix=prefix,
         dataset_id=dataset_id,
         year=datetime,
-        prefix=prefix,
         convert_to_int16=True,
-        overwrite=False,
+        overwrite=True,
         output_value_multiplier=100,
         extra_attrs=dict(dep_version=version),
+        write_stac=True,
     )
     logger = CsvLogger(
         name=dataset_id,
         container_client=get_container_client(),
-        path=get_log_path(prefix, dataset_id, version),
-        overwrite=False,
+        path=get_log_path(dataset_id, version, datetime),
+        overwrite=True,
         header="time|index|status|paths|comment\n",
     )
 
     run_by_area(
-        areas=aoi_by_tile,
+        areas=cell,
         loader=loader,
         processor=processor,
         writer=writer,
         logger=logger,
+        continue_on_error=False,
     )
 
 

@@ -14,10 +14,10 @@ from azure_logger import CsvLogger, get_log_path, filter_by_log
 
 def main(
     dataset_id: str = "wofs", version: str = "21Aug2023", years=range(2013, 2024)
-) -> List:
-    aoi_by_tile = gpd.read_file("data/aoi_split_by_landsat_pathrow.gpkg").set_index(
-        ["PATH", "ROW"], drop=False
-    )
+) -> None:
+    aoi_by_tile = gpd.read_file(
+        "https://deppcpublicstorage.blob.core.windows.net/output/aoi/aoi_split_by_landsat_pathrow.gpkg"
+    ).set_index(["PATH", "ROW"], drop=False)
 
     prefix = f"{dataset_id}/{version}"
     logger = CsvLogger(
@@ -29,8 +29,8 @@ def main(
     )
 
     aoi_by_tile = filter_by_log(aoi_by_tile, logger.parse_log())
-    return list(product(aoi_by_tile.index, years))
+    print(list(product(aoi_by_tile.index, years)))
 
 
 if __name__ == "__main__":
-    print(main())
+    typer.run(main)
