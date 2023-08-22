@@ -94,7 +94,7 @@ def main(
     prefix = f"{dataset_id}/{version}"
 
     loader = LandsatOdcLoader(
-        epsg=8859,
+        epsg=3832,
         datetime=datetime,
         dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         odc_load_kwargs=dict(
