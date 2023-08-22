@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     ca-certificates \
     build-essential \
-    cython \
     && apt-get autoclean \
     && apt-get autoremove \
     && rm -rf /var/lib/{apt,dpkg,cache,log}
