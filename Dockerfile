@@ -20,3 +20,6 @@ RUN pip3 install -r /tmp/requirements.txt
 ADD . /code
 
 WORKDIR /code
+
+# Don't use old pygeos
+ENV USE_PYGEOS=0
