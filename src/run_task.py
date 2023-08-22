@@ -83,12 +83,13 @@ class WofsLandsatProcessor(LandsatProcessor):
 
 
 def main(
-    area_index: List[str],
+    region_code: str,
+    region_index: str,
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
 ) -> None:
-    cell = grid.loc[[tuple(area_index)]]
+    cell = grid.loc[[(region_code, region_index)]]
 
     prefix = f"{dataset_id}/{version}"
 
