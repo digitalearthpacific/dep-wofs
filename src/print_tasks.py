@@ -38,7 +38,7 @@ def main(
 
     filter_by_log(grid_subset, logger.parse_log())
     params = [
-        {"region_code": region[0][0], "region_id": region[0][1], "datetime": region[1]}
+        {"region-code": region[0][0], "region-id": region[0][1], "datetime": region[1]}
         for region in product(grid_subset.index, [datetime])
     ]
 
