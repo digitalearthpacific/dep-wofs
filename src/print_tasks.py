@@ -17,14 +17,21 @@ from grid import grid
 
 
 def main(
-    region_code: Annotated[str, typer.Option()],
+    regions: Annotated[str, typer.Option()],
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     limit: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
 ) -> None:
+
+    region_codes = None
+    if regions.upper() == "ALL":
+        region_codes = None
+    else:
+        region_codes = regions.split(",")
+
     grid_subset = (
-        grid.loc[grid.code == region_code] if region_code is not None else grid
+        grid.loc[grid.code.isin(region_codes)] if region_codes is not None else grid
     )
 
     prefix = f"{dataset_id}/{version}"
@@ -38,7 +45,7 @@ def main(
 
     filter_by_log(grid_subset, logger.parse_log())
     params = [
-        {"region-code": region[0][0], "region-id": region[0][1], "datetime": region[1]}
+        {"region-code": region[0][0], "region-index": region[0][1], "datetime": region[1]}
         for region in product(grid_subset.index, [datetime])
     ]
 
