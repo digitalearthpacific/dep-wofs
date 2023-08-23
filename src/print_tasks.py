@@ -23,7 +23,6 @@ def main(
     limit: Annotated[str, typer.Option()],
     dataset_id: str = "wofs",
 ) -> None:
-
     region_codes = None
     if regions.upper() == "ALL":
         region_codes = None
@@ -45,7 +44,11 @@ def main(
 
     filter_by_log(grid_subset, logger.parse_log())
     params = [
-        {"region-code": region[0][0], "region-index": region[0][1], "datetime": region[1]}
+        {
+            "region-code": region[0][0],
+            "region-index": region[0][1],
+            "datetime": region[1],
+        }
         for region in product(grid_subset.index, [datetime])
     ]
 
