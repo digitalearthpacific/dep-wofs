@@ -1,4 +1,5 @@
 import json
+import sys
 from itertools import product
 from typing import Annotated
 
@@ -44,7 +45,7 @@ def main(
     if limit is not None:
         params = params[0 : int(limit)]
 
-    json.dump(params)
+    json.dump(params, sys.stdout)
 
 
 if __name__ == "__main__":
