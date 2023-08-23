@@ -1,5 +1,6 @@
 from typing_extensions import Annotated
 
+import numpy as np
 import typer
 from xarray import DataArray
 
@@ -77,7 +78,23 @@ def normalized_ratio(band1: DataArray, band2: DataArray) -> DataArray:
 class WofsLandsatProcessor(LandsatProcessor):
     def process(self, xr: DataArray) -> DataArray:
         xr = super().process(xr)
-        return wofs(xr).resample(time="1Y").mean().squeeze()
+        output = wofs(xr).resample(time="1Y").mean().squeeze()
+        start_datetime = np.datetime_as_string(
+            np.datetime64(xr.time.min().values, "Y"), unit="ms"
+        )
+
+        end_datetime = np.datetime_as_string(
+            np.datetime64(xr.time.max().values, "Y")
+            + np.timedelta64(1, "Y")
+            - np.timedelta64(1, "ns")
+        )
+        # This _should_ set this attr on the output cog
+        output["time"] = start_datetime
+        output.attrs["stac_properties"] = dict(
+            start_datetime=start_datetime, end_datetime=end_datetime, asset_name="wofs"
+        )
+
+        return output
 
 
 def main(
