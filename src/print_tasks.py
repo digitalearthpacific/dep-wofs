@@ -1,7 +1,7 @@
 import json
 import sys
 from itertools import product
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 from azure_logger import CsvLogger, filter_by_log, get_log_path
@@ -9,25 +9,17 @@ from dep_tools.utils import get_container_client
 
 from grid import grid
 
-#    region_codes: Annotated[List, typer.Option()],
-#    dataset_id: str = "wofs",
-#    version: str = "21Aug2023",
-#    years=2023
-#    limit: int = None,
-
 
 def main(
     regions: Annotated[str, typer.Option()],
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
-    limit: Annotated[str, typer.Option()],
+    limit: Optional[str] = None,
     dataset_id: str = "wofs",
 ) -> None:
-    region_codes = None
-    if regions.upper() == "ALL":
-        region_codes = None
-    else:
-        region_codes = regions.split(",")
+    region_codes = None if regions.upper() == "ALL" else regions.split(",")
+
+    years = datetime.split(",")
 
     grid_subset = (
         grid.loc[grid.code.isin(region_codes)] if region_codes is not None else grid
@@ -49,7 +41,7 @@ def main(
             "region-index": region[0][1],
             "datetime": region[1],
         }
-        for region in product(grid_subset.index, [datetime])
+        for region in product(grid_subset.index, [years])
     ]
 
     if limit is not None:
