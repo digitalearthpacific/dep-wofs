@@ -2,14 +2,15 @@ from typing_extensions import Annotated
 
 import numpy as np
 import typer
-from xarray import DataArray
+from xarray import DataArray, Dataset
 
 from azure_logger import CsvLogger, get_log_path
-from dep_tools.runner import run_by_area
 from dep_tools.loaders import LandsatOdcLoader
+from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
+from dep_tools.runner import run_by_area_dask_local
 from dep_tools.utils import get_container_client, scale_and_offset
-from dep_tools.writers import AzureXrWriter
+from dep_tools.writers import AzureDsWriter
 
 from grid import grid
 
@@ -76,7 +77,7 @@ def normalized_ratio(band1: DataArray, band2: DataArray) -> DataArray:
 
 
 class WofsLandsatProcessor(LandsatProcessor):
-    def process(self, xr: DataArray) -> DataArray:
+    def process(self, xr: DataArray) -> Dataset:
         xr = super().process(xr)
         output = wofs(xr).resample(time="1Y").mean().squeeze()
         start_datetime = np.datetime_as_string(
@@ -91,10 +92,10 @@ class WofsLandsatProcessor(LandsatProcessor):
         # This _should_ set this attr on the output cog
         output["time"] = start_datetime
         output.attrs["stac_properties"] = dict(
-            start_datetime=start_datetime, end_datetime=end_datetime, asset_name="wofs"
+            start_datetime=start_datetime, end_datetime=end_datetime
         )
 
-        return output
+        return output.to_dataset(name="mean")
 
 
 def main(
@@ -106,29 +107,23 @@ def main(
 ) -> None:
     cell = grid.loc[[(region_code, region_index)]]
 
-    prefix = f"{dataset_id}/{version}"
-
     loader = LandsatOdcLoader(
         epsg=3832,
         datetime=datetime,
-        dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
-        odc_load_kwargs=dict(
-            resampling={"qa_pixel": "nearest", "*": "cubic"},
-            fail_on_error=False,
-            resolution=30,
-        ),
+        dask_chunksize=dict(band=1, time=1, x=1024, y=1024),
+        odc_load_kwargs=dict(fail_on_error=False, resolution=30),
     )
 
     processor = WofsLandsatProcessor(dilate_mask=True)
-    writer = AzureXrWriter(
-        prefix=prefix,
-        dataset_id=dataset_id,
-        year=datetime,
+
+    itempath = DepItemPath("ls", dataset_id, version, datetime)
+
+    writer = AzureDsWriter(
+        itempath=itempath,
         convert_to_int16=True,
         overwrite=True,
         output_value_multiplier=100,
         extra_attrs=dict(dep_version=version),
-        write_stac=True,
     )
     logger = CsvLogger(
         name=dataset_id,
@@ -138,7 +133,7 @@ def main(
         header="time|index|status|paths|comment\n",
     )
 
-    run_by_area(
+    run_by_area_dask_local(
         areas=cell,
         loader=loader,
         processor=processor,

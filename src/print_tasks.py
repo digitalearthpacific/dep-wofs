@@ -1,7 +1,7 @@
 import json
 import sys
 from itertools import product
-from typing import Annotated, List, Optional
+from typing import Annotated, Optional
 
 import typer
 from azure_logger import CsvLogger, filter_by_log, get_log_path
