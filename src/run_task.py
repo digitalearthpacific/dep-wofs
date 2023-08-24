@@ -8,7 +8,7 @@ from azure_logger import CsvLogger, get_log_path
 from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
-from dep_tools.runner import run_by_area_dask_local
+from dep_tools.runner import run_by_area
 from dep_tools.utils import get_container_client, scale_and_offset
 from dep_tools.writers import AzureDsWriter
 
@@ -110,7 +110,7 @@ def main(
     loader = LandsatOdcLoader(
         epsg=3832,
         datetime=datetime,
-        dask_chunksize=dict(band=1, time=1, x=1024, y=1024),
+        dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         odc_load_kwargs=dict(fail_on_error=False, resolution=30),
     )
 
@@ -133,7 +133,7 @@ def main(
         header="time|index|status|paths|comment\n",
     )
 
-    run_by_area_dask_local(
+    run_by_area(
         areas=cell,
         loader=loader,
         processor=processor,
