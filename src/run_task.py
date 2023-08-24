@@ -8,7 +8,7 @@ from azure_logger import CsvLogger, get_log_path
 from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
-from dep_tools.runner import run_by_area
+from dep_tools.runner import run_by_area_dask_local
 from dep_tools.utils import get_container_client, scale_and_offset
 from dep_tools.writers import AzureDsWriter
 
@@ -133,7 +133,7 @@ def main(
         header="time|index|status|paths|comment\n",
     )
 
-    run_by_area(
+    run_by_area_dask_local(
         areas=cell,
         loader=loader,
         processor=processor,
