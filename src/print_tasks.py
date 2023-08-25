@@ -4,7 +4,8 @@ from itertools import product
 from typing import Annotated, Optional
 
 import typer
-from azure_logger import CsvLogger, filter_by_log, get_log_path
+from azure_logger import CsvLogger, filter_by_log
+from dep_tools.namers import DepItemPath
 from dep_tools.utils import get_container_client
 
 from grid import grid
@@ -15,6 +16,7 @@ def main(
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
+    no_retry_errors: Optional[bool] = False,
     dataset_id: str = "wofs",
 ) -> None:
     region_codes = None if regions.upper() == "ALL" else regions.split(",")
@@ -30,16 +32,16 @@ def main(
         grid.loc[grid.code.isin(region_codes)] if region_codes is not None else grid
     )
 
-    prefix = f"{dataset_id}/{version}"
+    itempath = DepItemPath("ls", dataset_id, version, datetime)
     logger = CsvLogger(
         name=dataset_id,
         container_client=get_container_client(),
-        path=get_log_path(prefix, dataset_id, version),
+        path=itempath.log_path(),
         overwrite=False,
         header="time|index|status|paths|comment\n",
     )
 
-    filter_by_log(grid_subset, logger.parse_log())
+    grid_subset = filter_by_log(grid_subset, logger.parse_log(), not no_retry_errors)
     params = [
         {
             "region-code": region[0][0],

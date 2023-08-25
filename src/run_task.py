@@ -9,6 +9,7 @@ from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
 from dep_tools.runner import run_by_area
+from dep_tools.stac_utils import set_stac_properties
 from dep_tools.utils import get_container_client, scale_and_offset
 from dep_tools.writers import AzureDsWriter
 
@@ -80,21 +81,7 @@ class WofsLandsatProcessor(LandsatProcessor):
     def process(self, xr: DataArray) -> Dataset:
         xr = super().process(xr)
         output = wofs(xr).resample(time="1Y").mean().squeeze()
-        start_datetime = np.datetime_as_string(
-            np.datetime64(xr.time.min().values, "Y"), unit="ms"
-        )
-
-        end_datetime = np.datetime_as_string(
-            np.datetime64(xr.time.max().values, "Y")
-            + np.timedelta64(1, "Y")
-            - np.timedelta64(1, "ns")
-        )
-        # This _should_ set this attr on the output cog
-        output["time"] = start_datetime
-        output.attrs["stac_properties"] = dict(
-            start_datetime=start_datetime, end_datetime=end_datetime
-        )
-
+        output = set_stac_properties(output)
         return output.to_dataset(name="mean")
 
 
@@ -112,6 +99,7 @@ def main(
         datetime=datetime,
         dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         odc_load_kwargs=dict(fail_on_error=False, resolution=30),
+        #    exclude_platforms=["landsat-7"],
     )
 
     processor = WofsLandsatProcessor(dilate_mask=True)
@@ -128,7 +116,7 @@ def main(
     logger = CsvLogger(
         name=dataset_id,
         container_client=get_container_client(),
-        path=get_log_path(dataset_id, version, datetime),
+        path=itempath.log_path(),
         overwrite=False,
         header="time|index|status|paths|comment\n",
     )
