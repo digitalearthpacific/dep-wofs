@@ -99,7 +99,7 @@ def main(
         datetime=datetime,
         dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         odc_load_kwargs=dict(fail_on_error=False, resolution=30),
-        #    exclude_platforms=["landsat-7"],
+        exclude_platforms=["landsat-7"],
     )
 
     processor = WofsLandsatProcessor(dilate_mask=True)
