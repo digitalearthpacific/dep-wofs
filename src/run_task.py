@@ -4,7 +4,7 @@ import numpy as np
 import typer
 from xarray import DataArray, Dataset
 
-from azure_logger import CsvLogger, get_log_path
+from azure_logger import CsvLogger
 from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
