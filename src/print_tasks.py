@@ -4,7 +4,7 @@ from itertools import product
 from typing import Annotated, Optional
 
 import typer
-from azure_logger import CsvLogger
+from azure_logger import CsvLogger, filter_by_log
 from dep_tools.namers import DepItemPath
 from dep_tools.utils import get_container_client
 
