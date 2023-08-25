@@ -82,7 +82,7 @@ class WofsLandsatProcessor(LandsatProcessor):
         xr = super().process(xr)
         output = wofs(xr).resample(time="1Y").mean().squeeze()
         output = set_stac_properties(xr, output)
-        return output.to_dataset(name="mean")
+        return output.to_dataset(name="mean", promote_attrs=True)
 
 
 def main(
