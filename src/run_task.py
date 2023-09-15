@@ -5,12 +5,13 @@ import typer
 from xarray import DataArray, Dataset
 
 from azure_logger import CsvLogger
+from dep_tools.azure import get_container_client
 from dep_tools.loaders import LandsatOdcLoader
 from dep_tools.namers import DepItemPath
 from dep_tools.processors import LandsatProcessor
 from dep_tools.runner import run_by_area
 from dep_tools.stac_utils import set_stac_properties
-from dep_tools.utils import get_container_client, scale_and_offset
+from dep_tools.utils import scale_and_offset
 from dep_tools.writers import AzureDsWriter
 
 from grid import grid
