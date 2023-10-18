@@ -5,7 +5,3 @@ command:
   - sh
   - run_on_pc.sh
   - mask.py
-  - --datetime
-  - "2013"
-  - --version
-  - "0.0.4"
