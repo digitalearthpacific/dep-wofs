@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dep-wofs"
+version = "0.0.4"
+description = "Water Observations from Space (WOFS) for Digital Earth Pacific"
+authors = [
+  {"name" = "Jesse Anderson <jesse.anderson@gmail.com>"},
+  {"name" = "Alex Leith <alex@auspatious.com>"},
+  {"name" = "Nicholas Metherall <nicholasm@spc.int>"}
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+requires-python = ">=3.10"
+dynamic = ["dependencies"]
+
+[tool.setuptools]
+packages = [ "dep_wofs" ]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
