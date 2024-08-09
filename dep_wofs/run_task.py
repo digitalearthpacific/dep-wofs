@@ -8,9 +8,9 @@ from xarray import DataArray, Dataset
 from cloud_logger import CsvLogger, S3Handler
 from dep_tools.aws import write_stac_aws, write_to_s3
 from dep_tools.loaders import OdcLoader, SearchLoader
-from dep_tools.namers import DepItemPath
+from dep_tools.namers import S3ItemPath
 from dep_tools.processors import LandsatProcessor, XrPostProcessor
-from dep_tools.task import ErrorCategoryAreaTask as Task
+from dep_tools.task import StacTask as Task
 from dep_tools.stac_utils import (
     set_stac_properties,
     StacCreator,
@@ -110,28 +110,28 @@ def main(
         resolution=30,
         patch_url=pc.sign,
     )
-    loader = SearchLoader(searcher, stacloader)
 
     processor = WofsLandsatProcessor(mask_clouds_kwargs=dict(filters=[("dilation", 2)]))
 
-    itempath = DepItemPath("ls", dataset_id, version, datetime)
+    itempath = S3ItemPath(
+        bucket="dep-cl",
+        sensor="ls",
+        dataset_id=dataset_id,
+        version=version,
+        time=datetime,
+    )
+    post_processor = XrPostProcessor(
+        convert_to_int16=True,
+        output_value_multiplier=100,
+        extra_attrs=dict(dep_version=version),
+    )
 
-    stac_creator = StacCreator(itempath, bucket="dep-cl")
+    stac_creator = StacCreator(itempath)
     stac_writer = StacWriter(
-        itempath, stac_creator, write_stac_function=write_stac_aws, bucket="dep-cl"
+        itempath, write_stac_function=write_stac_aws, bucket="dep-cl"
     )
 
-    writer = DepWriter(
-        itempath=itempath,
-        pre_processor=XrPostProcessor(
-            convert_to_int16=True,
-            output_value_multiplier=100,
-            extra_attrs=dict(dep_version=version),
-        ),
-        cog_writer=DsCogWriter(itempath, write_function=write_to_s3, bucket="dep-cl"),
-        stac_writer=stac_writer,
-        overwrite=True,
-    )
+    writer = DsCogWriter(itempath, write_function=write_to_s3, bucket="dep-cl")
 
     logger = CsvLogger(
         name=dataset_id,
@@ -144,9 +144,13 @@ def main(
     Task(
         id=(row, column),
         area=cell,
-        loader=loader,
+        searcher=searcher,
+        loader=stacloader,
         processor=processor,
+        post_processor=post_processor,
         writer=writer,
+        stac_creator=stac_creator,
+        stac_writer=stac_writer,
         logger=logger,
     ).run()
 
