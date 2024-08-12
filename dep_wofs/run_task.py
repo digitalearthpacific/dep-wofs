@@ -1,22 +1,16 @@
 from typing_extensions import Annotated
-from dep_tools.searchers import LandsatPystacSearcher
 
 import typer
 import planetary_computer as pc
 from xarray import DataArray, Dataset
 
 from cloud_logger import CsvLogger, S3Handler
-from dep_tools.aws import write_stac_aws, write_to_s3
-from dep_tools.loaders import OdcLoader, SearchLoader
+from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import LandsatProcessor, XrPostProcessor
-from dep_tools.task import StacTask as Task
-from dep_tools.stac_utils import (
-    set_stac_properties,
-    StacCreator,
-)
+from dep_tools.searchers import LandsatPystacSearcher
+from dep_tools.task import AwsStacTask as Task
 from dep_tools.utils import scale_and_offset
-from dep_tools.writers import DepWriter, DsCogWriter, StacWriter
 from grid import grid
 
 
@@ -87,7 +81,6 @@ class WofsLandsatProcessor(LandsatProcessor):
     def process(self, xr: Dataset) -> Dataset:
         xr = super().process(xr)
         output = wofs(xr).resample(time="1Y").mean().squeeze()
-        output = set_stac_properties(xr, output)
         return output.to_dataset(name="mean", promote_attrs=True)
 
 
@@ -100,10 +93,20 @@ def main(
 ) -> None:
     cell = grid.loc[[(row, column)]]
 
+    itempath = S3ItemPath(
+        bucket="dep-public-staging",
+        sensor="ls",
+        dataset_id=dataset_id,
+        version=version,
+        time=datetime,
+    )
+
     searcher = LandsatPystacSearcher(exclude_platforms=["landsat-7"], datetime=datetime)
+
     stacloader = OdcLoader(
         clip_to_area=True,
         epsg=cell.crs,
+        dtype="float32",
         bands=["red", "green", "blue", "nir08", "swir16", "swir22", "qa_pixel"],
         dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
         fail_on_error=False,
@@ -112,48 +115,35 @@ def main(
     )
 
     processor = WofsLandsatProcessor(mask_clouds_kwargs=dict(filters=[("dilation", 2)]))
-
-    itempath = S3ItemPath(
-        bucket="dep-cl",
-        sensor="ls",
-        dataset_id=dataset_id,
-        version=version,
-        time=datetime,
-    )
     post_processor = XrPostProcessor(
         convert_to_int16=True,
         output_value_multiplier=100,
         extra_attrs=dict(dep_version=version),
     )
 
-    stac_creator = StacCreator(itempath)
-    stac_writer = StacWriter(
-        itempath, write_stac_function=write_stac_aws, bucket="dep-cl"
-    )
-
-    writer = DsCogWriter(itempath, write_function=write_to_s3, bucket="dep-cl")
-
     logger = CsvLogger(
         name=dataset_id,
-        path=f"dep-cl/{itempath.log_path()}",
+        path=f"{itempath.bucket}/{itempath.log_path()}",
         overwrite=False,
         header="time|index|status|paths|comment\n",
         cloud_handler=S3Handler,
     )
 
     Task(
+        itempath=itempath,
         id=(row, column),
         area=cell,
         searcher=searcher,
         loader=stacloader,
         processor=processor,
         post_processor=post_processor,
-        writer=writer,
-        stac_creator=stac_creator,
-        stac_writer=stac_writer,
         logger=logger,
     ).run()
 
 
 if __name__ == "__main__":
+    # Using this until reboot
+    import boto3
+
+    boto3.setup_default_session(profile_name="dep-staging-admin")
     typer.run(main)
