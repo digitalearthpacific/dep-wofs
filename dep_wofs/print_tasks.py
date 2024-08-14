@@ -26,7 +26,14 @@ def main(
     limit: Optional[str] = None,
     no_retry_errors: Optional[bool] = False,
     dataset_id: str = "wofs",
+    setup_auth: Optional[bool] = False,
 ) -> None:
+    if setup_auth:
+        from aiobotocore.session import AioSession
+
+        handler_kwargs = dict(session=AioSession(profile="dep-staging-admin"))
+    else:
+        handler_kwargs = dict()
 
     years = parse_datetime(datetime)
 
@@ -44,7 +51,7 @@ def main(
         overwrite=False,
         header="time|index|status|paths|comment\n",
         cloud_handler=S3Handler,
-        session=AioSession(profile="dep-staging-admin"),
+        **handler_kwargs,
     )
 
     grid_subset = filter_by_log(grid, logger.parse_log(), not no_retry_errors)
