@@ -27,7 +27,7 @@ jobs:
         uses: rickstaa/action-black@v1
         id: action_black
         with:
-          black_args: "--check dep-wofs"
+          black_args: "--check dep_wofs"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
