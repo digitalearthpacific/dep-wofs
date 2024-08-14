@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/{apt,dpkg,cache,log}
 
 
-RUN pip install ./dep_wofs
+ADD . /tmp/dep-coastlines
+WORKDIR /tmp
+RUN pip install --no-cache-dir --upgrade pip && pip install ./dep-wofs
 
 ADD . /code
 
