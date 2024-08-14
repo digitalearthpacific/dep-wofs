@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/{apt,dpkg,cache,log}
 
 
-RUN pip install ./dep-wofs
+RUN pip install ./dep_wofs
 
 ADD . /code
 
