@@ -4,48 +4,54 @@ from itertools import product
 from typing import Annotated, Optional
 
 import typer
-from azure_logger import CsvLogger, filter_by_log
-from dep_tools.namers import DepItemPath
-from dep_tools.azure import get_container_client
+from aiobotocore.session import AioSession
+from cloud_logger import CsvLogger, filter_by_log, S3Handler
+from dep_tools.namers import S3ItemPath
 
 from grid import grid
 
 
+def parse_datetime(datetime):
+    years = datetime.split("-")
+    if len(years) == 2:
+        years = range(int(years[0]), int(years[1]) + 1)
+    elif len(years) > 2:
+        ValueError(f"{datetime} is not a valid value for --datetime")
+    return years
+
+
 def main(
-    regions: Annotated[str, typer.Option()],
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     no_retry_errors: Optional[bool] = False,
     dataset_id: str = "wofs",
 ) -> None:
-    region_codes = None if regions.upper() == "ALL" else regions.split(",")
 
-    # Makes a list no matter what
-    years = datetime.split("-")
-    if len(years) == 2:
-        years = range(int(years[0]), int(years[1]) + 1)
-    elif len(years) > 2:
-        ValueError(f"{datetime} is not a valid value for --datetime")
+    years = parse_datetime(datetime)
 
-    grid_subset = (
-        grid.loc[grid.code.isin(region_codes)] if region_codes is not None else grid
+    itempath = S3ItemPath(
+        bucket="dep-public-staging",
+        sensor="ls",
+        dataset_id=dataset_id,
+        version=version,
+        time=datetime,
     )
 
-    itempath = DepItemPath("ls", dataset_id, version, datetime)
     logger = CsvLogger(
         name=dataset_id,
-        container_client=get_container_client(),
-        path=itempath.log_path(),
+        path=f"{itempath.bucket}/{itempath.log_path()}",
         overwrite=False,
         header="time|index|status|paths|comment\n",
+        cloud_handler=S3Handler,
+        session=AioSession(profile="dep-staging-admin"),
     )
 
-    grid_subset = filter_by_log(grid_subset, logger.parse_log(), not no_retry_errors)
+    grid_subset = filter_by_log(grid, logger.parse_log(), not no_retry_errors)
     params = [
         {
-            "region-code": region[0][0],
-            "region-index": region[0][1],
+            "row": region[0][0],
+            "column": region[0][1],
             "datetime": region[1],
         }
         for region in product(grid_subset.index, years)

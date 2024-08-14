@@ -1,7 +1,9 @@
 from typing_extensions import Annotated
 
-import typer
+from distributed import Client
+from odc.stac import configure_s3_access
 import planetary_computer as pc
+from typer import Option, run
 from xarray import DataArray, Dataset
 
 from cloud_logger import CsvLogger, S3Handler
@@ -84,13 +86,29 @@ class WofsLandsatProcessor(LandsatProcessor):
         return output.to_dataset(name="mean", promote_attrs=True)
 
 
+def bool_parser(raw: str):
+    return False if raw == "False" else True
+
+
 def main(
-    row: Annotated[str, typer.Option(parser=int)],
-    column: Annotated[str, typer.Option(parser=int)],
-    datetime: Annotated[str, typer.Option()],
-    version: Annotated[str, typer.Option()],
+    row: Annotated[str, Option(parser=int)],
+    column: Annotated[str, Option(parser=int)],
+    datetime: Annotated[str, Option()],
+    version: Annotated[str, Option()],
     dataset_id: str = "wofs",
+    setup_auth: Annotated[str, Option(parser=bool_parser)] = "False",
 ) -> None:
+
+    if setup_auth:
+        import boto3
+        from aiobotocore.session import AioSession
+
+        boto3.setup_default_session(profile_name="dep-staging-admin")
+        handler_kwargs = dict(session=AioSession(profile="dep-staging-admin"))
+    else:
+        handler_kwargs = dict()
+
+    configure_s3_access(cloud_defaults=True, requester_pays=True)
     cell = grid.loc[[(row, column)]]
 
     itempath = S3ItemPath(
@@ -101,17 +119,21 @@ def main(
         time=datetime,
     )
 
-    searcher = LandsatPystacSearcher(exclude_platforms=["landsat-7"], datetime=datetime)
+    searcher = LandsatPystacSearcher(
+        catalog="https://earth-search.aws.element84.com/v1",
+        exclude_platforms=["landsat-7"],
+        datetime=datetime,
+    )
 
     stacloader = OdcLoader(
         clip_to_area=True,
         epsg=cell.crs,
         dtype="float32",
         bands=["red", "green", "blue", "nir08", "swir16", "swir22", "qa_pixel"],
-        dask_chunksize=dict(band=1, time=1, x=4096, y=4096),
+        chunks=dict(band=1, time=1, x=4096, y=4096),
         fail_on_error=False,
         resolution=30,
-        patch_url=pc.sign,
+        #        patch_url=pc.sign,
     )
 
     processor = WofsLandsatProcessor(mask_clouds_kwargs=dict(filters=[("dilation", 2)]))
@@ -127,23 +149,29 @@ def main(
         overwrite=False,
         header="time|index|status|paths|comment\n",
         cloud_handler=S3Handler,
+        **handler_kwargs,
     )
 
-    Task(
-        itempath=itempath,
-        id=(row, column),
-        area=cell,
-        searcher=searcher,
-        loader=stacloader,
-        processor=processor,
-        post_processor=post_processor,
-        logger=logger,
-    ).run()
+    id = (row, column)
+
+    try:
+        paths = Task(
+            itempath=itempath,
+            id=id,
+            area=cell,
+            searcher=searcher,
+            loader=stacloader,
+            processor=processor,
+            post_processor=post_processor,
+            logger=logger,
+        ).run()
+    except Exception as e:
+        logger.error([id, "error", e])
+        raise e
+
+    logger.info([id, "complete", paths])
 
 
 if __name__ == "__main__":
-    # Using this until reboot
-    import boto3
-
-    boto3.setup_default_session(profile_name="dep-staging-admin")
-    typer.run(main)
+    with Client():
+        run(main)
