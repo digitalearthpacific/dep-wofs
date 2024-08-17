@@ -12,7 +12,7 @@ from xarray import Dataset
 from cloud_logger import CsvLogger, S3Handler
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
-from dep_tools.processors import LandsatProcessor, XrPostProcessor
+from dep_tools.processors import Processor, XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher, PystacSearcher
 from dep_tools.task import AwsStacTask as Task
 from grid import grid
@@ -21,12 +21,12 @@ from grid import grid
 SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
 
 
-class WofsLandsatProcessor(LandsatProcessor):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+def dep_wofs(ds, mask=None):
+    return WofsLandsatProcessor().process(ds, mask)
 
-    def process(self, ds: Dataset, area) -> Dataset:
-        ds = super().process(ds)
+
+class WofsLandsatProcessor(Processor):
+    def process(self, ds: Dataset, area=None) -> Dataset:
         ds = ds.rename(
             {
                 "blue": "nbart_blue",
@@ -47,13 +47,15 @@ class WofsLandsatProcessor(LandsatProcessor):
             lambda ds: summarizer.native_transform(ds)
         )
         output = summarizer.reduce(prepped)[["frequency"]]
-        geom = Geometry(area.geometry.unary_union, crs=area.crs)
-        output["frequency_masked"] = output.frequency.odc.mask(geom)
+        if area is not None:
+            geom = Geometry(area.geometry.unary_union, crs=area.crs)
+            output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
 
 
 class DepWOfSClassifier(WOfSClassifier):
     def __init__(self, **kwargs):
+        # Placeholder needed here so _load_dsm is called
         super().__init__(dsm_path="this_is_a_placeholder", **kwargs)
 
     def _load_dsm(self, gbox):
@@ -71,7 +73,7 @@ class DepWOfSClassifier(WOfSClassifier):
             load(items, geobox=realgeobox)
             .rename(dict(data="elevation"))  # renamed for wofs functionality
             .squeeze()
-            .assign_attrs(crs=realgeobox.crs)  # needed for wofs functionality
+            .assign_attrs(crs=realgeobox.crs)
         )
 
 
@@ -125,9 +127,7 @@ def main(
         resolution=30,
     )
 
-    processor = WofsLandsatProcessor(
-        mask_clouds=False, scale_and_offset=False, send_area_to_processor=True
-    )
+    processor = WofsLandsatProcessor(send_area_to_processor=True)
     post_processor = XrPostProcessor(
         convert_to_int16=True,
         output_value_multiplier=100,
