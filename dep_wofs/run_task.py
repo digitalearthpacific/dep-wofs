@@ -1,8 +1,8 @@
 from typing_extensions import Annotated
 
 from distributed import Client
-from wofs.virtualproduct import scale_usgs_collection2
-from wofs.wofls import woffles_usgs_c2
+from wofs.virtualproduct import WOfSClassifier
+from odc.geo.geobox import GeoBox
 from odc.stac import configure_s3_access, load
 from odc.stats.plugins.wofs import StatsWofs
 from typer import Option, run
@@ -26,55 +26,49 @@ class WofsLandsatProcessor(LandsatProcessor):
 
     def process(self, ds: Dataset) -> Dataset:
         ds = super().process(ds)
+        ds = ds.rename(
+            {
+                "blue": "nbart_blue",
+                "green": "nbart_green",
+                "red": "nbart_red",
+                "nir08": "nbart_nir",
+                "swir16": "nbart_swir_1",
+                "swir22": "nbart_swir_2",
+                "qa_pixel": "fmask",
+            }
+        ).assign_attrs(
+            crs=ds.rio.crs
+        )  # <- might need to start doing this on load
+        woffles = DepWOfSClassifier(c2_scaling=True).compute(ds)
 
-        woffles = dea_wofls(ds)
         summarizer = StatsWofs()
         prepped = woffles.groupby("time").apply(
-            lambda da: summarizer.native_transform(da.to_dataset(name="water"))
+            lambda ds: summarizer.native_transform(ds)
         )
         return summarizer.reduce(prepped)[["frequency"]]
 
 
-def dea_wofls(ds: Dataset):
-    ds[SR_BANDS] = scale_usgs_collection2(ds[SR_BANDS])
-    # rename for wofs functionality
-    ds = ds.rename(
-        {
-            "blue": "nbart_blue",
-            "green": "nbart_green",
-            "red": "nbart_red",
-            "nir08": "nbart_nir",
-            "swir16": "nbart_swir_1",
-            "swir22": "nbart_swir_2",
-            "qa_pixel": "fmask",
-        }
-    )
-    # computing here so it doesn't need to be reloaded for each time step
-    dsm = load_dsm(ds).compute()
+class DepWOfSClassifier(WOfSClassifier):
+    def __init__(self, **kwargs):
+        super().__init__(dsm_path="this_is_a_placeholder", **kwargs)
 
-    return ds.groupby("time").apply(
-        # There should be no nodata in the cop data, but we need to think about
-        # tile margins (all land should be covered) and see the odc stac issue
-        # about gaps
-        lambda ds_yr: woffles_usgs_c2(ds_yr.squeeze(), dsm, ignore_dsm_no_data=True)
-    )
+    def _load_dsm(self, gbox):
+        # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
+        # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
+        realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
 
+        # Use this instead of just searching to be OK across -180
+        items = PystacSearcher(
+            catalog="https://earth-search.aws.element84.com/v1",
+            collections=["cop-dem-glo-30"],
+        ).search(realgeobox)
 
-def load_dsm(like: Dataset):
-    # Use this instead of just searching to be OK across -180
-    items = PystacSearcher(
-        catalog="https://earth-search.aws.element84.com/v1",
-        collections=["cop-dem-glo-30"],
-    ).search(like.odc.geobox)
-
-    return (
-        load(
-            items, like=like, chunks=dict(x=like.chunks["x"][0], y=like.chunks["y"][0])
+        return (
+            load(items, geobox=realgeobox)
+            .rename(dict(data="elevation"))  # renamed for wofs functionality
+            .squeeze()
+            .assign_attrs(crs=realgeobox.crs)  # needed for wofs functionality
         )
-        .rename(dict(data="elevation"))  # renamed for wofs functionality
-        .squeeze()
-        .assign_attrs(crs=like.rio.crs)  # needed for wofs functionality
-    )
 
 
 def bool_parser(raw: str):
