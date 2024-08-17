@@ -3,6 +3,7 @@ from typing_extensions import Annotated
 from distributed import Client
 from wofs.virtualproduct import WOfSClassifier
 from odc.geo.geobox import GeoBox
+from odc.geo.geom import Geometry
 from odc.stac import configure_s3_access, load
 from odc.stats.plugins.wofs import StatsWofs
 from typer import Option, run
@@ -24,7 +25,7 @@ class WofsLandsatProcessor(LandsatProcessor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def process(self, ds: Dataset) -> Dataset:
+    def process(self, ds: Dataset, area) -> Dataset:
         ds = super().process(ds)
         ds = ds.rename(
             {
@@ -45,7 +46,10 @@ class WofsLandsatProcessor(LandsatProcessor):
         prepped = woffles.groupby("time").apply(
             lambda ds: summarizer.native_transform(ds)
         )
-        return summarizer.reduce(prepped)[["frequency"]]
+        output = summarizer.reduce(prepped)[["frequency"]]
+        geom = Geometry(area.geometry.unary_union, crs=area.crs)
+        output["frequency_masked"] = output.frequency.odc.mask(geom)
+        return output
 
 
 class DepWOfSClassifier(WOfSClassifier):
@@ -121,7 +125,9 @@ def main(
         resolution=30,
     )
 
-    processor = WofsLandsatProcessor(mask_clouds=False, scale_and_offset=False)
+    processor = WofsLandsatProcessor(
+        mask_clouds=False, scale_and_offset=False, send_area_to_processor=True
+    )
     post_processor = XrPostProcessor(
         convert_to_int16=True,
         output_value_multiplier=100,
