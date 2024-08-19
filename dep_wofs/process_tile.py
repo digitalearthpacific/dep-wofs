@@ -10,6 +10,7 @@ from typer import Option, run
 from xarray import Dataset
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_grid import gadm_union
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import Processor, XrPostProcessor
@@ -19,10 +20,6 @@ from grid import grid
 
 
 SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
-
-
-def dep_wofs(ds, mask=None):
-    return WofsLandsatProcessor().process(ds, mask)
 
 
 class WofsLandsatProcessor(Processor):
@@ -48,7 +45,8 @@ class WofsLandsatProcessor(Processor):
         )
         output = summarizer.reduce(prepped)[["frequency"]]
         if area is not None:
-            geom = Geometry(area.geometry.unary_union, crs=area.crs)
+            land_mask = area.clip(gadm_union.to_crs(area.crs))
+            geom = Geometry(land_mask.geometry.unary_union, crs=area.crs)
             output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
 
