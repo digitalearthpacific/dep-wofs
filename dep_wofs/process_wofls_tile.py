@@ -21,21 +21,27 @@ class MultiItemTask:
     def __init__(self, items: ItemCollection, itempath, searcher, **kwargs):
         self._items = items
         self._itempath = itempath
-        self._searcher = searcher
+        self._searcher = IS()
         self._kwargs = kwargs
         self._task_class = AwsStacTask
 
     def run(self):
         paths = []
         for item in self._items:
-            self._itempath.time = item.get_datetime()
             # This could be faster if we just send the item to the loader
             # but I think we'd need to hack the searcher
-            self._searcher._kwargs["datetime"] = self._itempath.time
+            # self._searcher._kwargs["datetime"] = self._itempath.time
+            self._itempath.time = item.get_datetime()
+            self._searcher.item = item
             paths += self._task_class(
                 self._itempath, searcher=self._searcher, **self._kwargs
             ).run()
         return paths
+
+
+class IS:
+    def search(self, area):
+        return [self.item]
 
 
 class DailyItemPath(S3ItemPath):
