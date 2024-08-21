@@ -11,10 +11,7 @@ from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher
 from dep_tools.task import AwsStacTask as Task
 from grid import grid
-from wofs import WofsProcessor
-
-
-SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
+from wofs import WoflWofsProcessor
 
 
 def bool_parser(raw: str):
@@ -56,8 +53,8 @@ def main(
         datetime=datetime,
     )
 
+    SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
     stacloader = OdcLoader(
-        # clip_to_area=True,
         groupby="solar_day",  # OK but we may need to revisit for clouds
         crs=cell.crs,
         dtype="uint16",
@@ -67,7 +64,7 @@ def main(
         resolution=30,
     )
 
-    processor = WofsProcessor(send_area_to_processor=True)
+    processor = WoflWofsProcessor(send_area_to_processor=True)
     post_processor = XrPostProcessor(
         convert_to_int16=True,
         output_value_multiplier=100,

@@ -1,14 +1,14 @@
 import json
 import sys
 from itertools import product
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Literal
 
 import typer
 from aiobotocore.session import AioSession
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
 from dep_tools.namers import S3ItemPath
 
-from grid import grid
+import grid as wofs_grid
 
 
 def parse_datetime(datetime):
@@ -20,13 +20,18 @@ def parse_datetime(datetime):
     return years
 
 
+def bool_parser(raw: str):
+    return False if raw == "False" else True
+
+
 def main(
     datetime: Annotated[str, typer.Option()],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
-    no_retry_errors: Optional[bool] = False,
+    retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
+    grid: Optional[str] = "dep",
+    setup_auth: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     dataset_id: str = "wofs",
-    setup_auth: Optional[bool] = False,
 ) -> None:
     if setup_auth:
         from aiobotocore.session import AioSession
@@ -54,11 +59,15 @@ def main(
         **handler_kwargs,
     )
 
-    grid_subset = filter_by_log(grid, logger.parse_log(), not no_retry_errors)
+    this_grid = wofs_grid.grid if grid == "dep" else wofs_grid.ls_grid
+    first_name = dict(dep="row", ls="path")
+    second_name = dict(dep="column", ls="row")
+    grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
     params = [
         {
-            "row": region[0][0],
-            "column": region[0][1],
+            # we could take fromthe grid if we name the dep_grid multiindex
+            first_name[grid]: region[0][0],
+            second_name[grid]: region[0][1],
             "datetime": region[1],
         }
         for region in product(grid_subset.index, years)
