@@ -101,7 +101,7 @@ def main(
 
     SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
     stacloader = OdcLoader(
-        groupby="solar_day",  # OK but we may need to revisit for clouds
+        groupby="solar_day",
         dtype="uint16",
         bands=SR_BANDS + ["qa_pixel"],
         chunks=dict(band=1, time=1, x=4096, y=4096),
@@ -154,17 +154,6 @@ def main(
         raise e
 
     logger.info([id, "complete", paths])
-
-
-# from pandas import DataFrame
-# from geopandas import GeoDataFrame
-# from shapely import box
-#
-#
-# def items_to_geodataframe(items):
-#    df = DataFrame.from_records([i.to_dict() for i in items])
-#    boxes = df.bbox.apply(lambda bbox: box(*bbox))
-#    return GeoDataFrame(df, geometry=boxes, crs=4326).set_index("id")
 
 
 if __name__ == "__main__":

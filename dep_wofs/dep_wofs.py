@@ -50,6 +50,7 @@ class DepWOfSClassifier(WOfSClassifier):
     def __init__(self, **kwargs):
         # Placeholder needed here so _load_dsm is called
         super().__init__(c2_scaling=True, dsm_path="this_is_a_placeholder", **kwargs)
+        self._dsm = None
 
     def compute(self, data) -> Dataset:
         data = data.rename(
@@ -66,19 +67,24 @@ class DepWOfSClassifier(WOfSClassifier):
         return super().compute(data)
 
     def _load_dsm(self, gbox):
-        # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
-        # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
-        realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
+        # cache dsm for multiple dates in the same aoi. after testing, should
+        # test if gbox is the same too.
+        if self._dsm is None:
+            # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
+            # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
+            realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
 
-        # Use this instead of just searching to be OK across -180
-        items = PystacSearcher(
-            catalog="https://earth-search.aws.element84.com/v1",
-            collections=["cop-dem-glo-30"],
-        ).search(realgeobox)
+            # Use this instead of just searching to be OK across -180
+            items = PystacSearcher(
+                catalog="https://earth-search.aws.element84.com/v1",
+                collections=["cop-dem-glo-30"],
+            ).search(realgeobox)
 
-        return (
-            load(items, geobox=realgeobox)
-            .rename(dict(data="elevation"))  # renamed for wofs functionality
-            .squeeze()
-            .assign_attrs(crs=realgeobox.crs)
-        )
+            self._dsm = (
+                load(items, geobox=realgeobox)
+                .rename(dict(data="elevation"))  # renamed for wofs functionality
+                .squeeze()
+                .assign_attrs(crs=realgeobox.crs)
+                .compute()
+            )
+        return self._dsm
