@@ -23,6 +23,7 @@ def wofs(wofls: Dataset, mask=None) -> Dataset:
 class WoflProcessor(Processor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Init this separately to accommodate dsm caching
         self.classifier = DepWOfSClassifier()
 
     def process(self, ls_c2_ds):
