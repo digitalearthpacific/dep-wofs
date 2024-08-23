@@ -21,8 +21,11 @@ def wofs(wofls: Dataset, mask=None) -> Dataset:
 
 
 class WoflProcessor(Processor):
+    def __init__(self):
+        self.classifier = DepWOfSClassifier()
+
     def process(self, ls_c2_ds):
-        return DepWOfSClassifier().compute(ls_c2_ds)
+        return self.classifier.compute(ls_c2_ds)
 
 
 class WofsProcessor(Processor):
