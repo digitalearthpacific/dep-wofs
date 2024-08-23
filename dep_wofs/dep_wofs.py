@@ -1,5 +1,3 @@
-from typing import Callable
-
 from odc.geo.geobox import GeoBox
 from odc.geo.geom import Geometry
 from odc.stac import load
@@ -12,7 +10,7 @@ from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
 
 
-def wofls(ls_c2_ds: Dataset) -> Dataset:
+def wofl(ls_c2_ds: Dataset) -> Dataset:
     return WoflProcessor().process(ls_c2_ds)
 
 
@@ -21,6 +19,10 @@ def wofs(wofls: Dataset, mask=None) -> Dataset:
 
 
 class WoflProcessor(Processor):
+    """A tiny wrapper around `DepWOfSClassifier.compute` which allows conformance
+    to the DEP scaling abstractions in dep-tools.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Init this separately to accommodate dsm caching
@@ -31,6 +33,14 @@ class WoflProcessor(Processor):
 
 
 class WofsProcessor(Processor):
+    """A wrapper around `odc.stats.plugins.wofs.StatsWofs`. Accepts a time
+    series of WOfS feature layers indexed by a "time" coordinate. In addition
+    to "count_wet", "count_clear" and "frequency" variables, optionally creates
+    a masked version of frequency if a mask is provided. Useful for additional
+    area filtering. In the DEP workflow, it is used to mask out ocean waters
+    which are poorly classified by the WOfS algorithm.
+    """
+
     def process(self, wofls: Dataset, area=None) -> Dataset:
         summarizer = StatsWofs()
         prepped = wofls.groupby("time").apply(
@@ -52,6 +62,14 @@ class WoflWofsProcessor(Processor):
 
 
 class DepWOfSClassifier(WOfSClassifier):
+    """A wrapper around wofs.virtualproduct.WOfSClassifier. Allows the use of
+    input data with band names "blue", "green", "red", "nir08", "swir16",
+    "swir22" and "qa_pixel", rather than "nbart_blue", "nbart_green",
+    "nbart_red", "nbart_nir", "nbart_swir_1", "nbart_swir_2", and "fmask".
+    Also uses the Copernicus 30-meter dem loaded from the stac catalog rather
+    than a datacube loaded DEM.
+    """
+
     def __init__(self, **kwargs):
         # Placeholder needed here so _load_dsm is called
         super().__init__(c2_scaling=True, dsm_path="this_is_a_placeholder", **kwargs)
