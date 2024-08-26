@@ -7,6 +7,7 @@ from pystac import ItemCollection
 from typer import Option, run
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_tools.exceptions import EmptyCollectionError
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
@@ -139,9 +140,10 @@ def main(
 
     try:
         items = searcher.search(cell)
-    except Exception as e:
+    except EmptyCollectionError as e:
         logger.error([id, "error", e])
-        raise e
+        # Don't reraise, it just means there's no data
+        return None
 
     SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
     stacloader = OdcLoader(

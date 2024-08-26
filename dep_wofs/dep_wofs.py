@@ -108,6 +108,6 @@ class DepWOfSClassifier(WOfSClassifier):
                 .rename(dict(data="elevation"))  # renamed for wofs functionality
                 .squeeze()
                 .assign_attrs(crs=realgeobox.crs)
-                .compute()
+                .persist()
             )
         return self._dsm
