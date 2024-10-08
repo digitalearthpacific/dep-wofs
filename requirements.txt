@@ -1,4 +1,5 @@
 gdal
+numpy==1.26.4
 odc-stats
 typer
 dep-tools @ git+https://github.com/digitalearthpacific/dep-tools.git
