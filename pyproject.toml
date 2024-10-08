@@ -17,7 +17,7 @@ requires-python = ">=3.10"
 dynamic = ["dependencies"]
 
 [tool.setuptools]
-packages = [ "dep_wofs" ]
+packages = ["dep_wofs"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }

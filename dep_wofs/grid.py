@@ -1,10 +1,12 @@
 from pathlib import Path
 import geopandas as gpd
 
-import dep_grid
+from dep_tools.grids import grid, gadm_union
+
+GADM = gadm_union()
 
 # Use for wofs, i.e. summary products
-grid = dep_grid.grid(intersect_with=dep_grid.gadm_union)
+grid = grid(intersect_with=GADM, return_type="GeoDataFrame")
 
 
 # Used for wofls, i.e. daily products
@@ -15,7 +17,7 @@ if not ls_grid_path.exists():
     )
     ls_grid = landsat_pathrows.loc[
         landsat_pathrows.sjoin(
-            dep_grid.gadm_union.to_crs(landsat_pathrows.crs), how="inner"
+            gadm_union.to_crs(landsat_pathrows.crs), how="inner"
         ).index
     ]
     ls_grid.to_file(ls_grid_path)

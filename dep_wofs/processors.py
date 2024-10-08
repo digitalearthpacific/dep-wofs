@@ -5,9 +5,9 @@ from odc.stats.plugins.wofs import StatsWofs
 from wofs.virtualproduct import WOfSClassifier
 from xarray import Dataset
 
-from dep_grid import gadm_union
 from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
+from dep_wofs.grid import GADM
 
 
 def wofl(ls_c2_ds: Dataset) -> Dataset:
@@ -48,7 +48,7 @@ class WofsProcessor(Processor):
         )
         output = summarizer.reduce(prepped)
         if area is not None:
-            land_mask = area.clip(gadm_union.to_crs(area.crs))
+            land_mask = area.clip(GADM.to_crs(area.crs))
             geom = Geometry(land_mask.geometry.unary_union, crs=area.crs)
             output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output

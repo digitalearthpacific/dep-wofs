@@ -1,10 +1,9 @@
 import json
 import sys
 from itertools import product
-from typing import Annotated, Optional, Literal
+from typing import Annotated, Optional
 
 import typer
-from aiobotocore.session import AioSession
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
 from dep_tools.namers import S3ItemPath
 
@@ -30,16 +29,8 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    setup_auth: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     dataset_id: str = "wofs",
 ) -> None:
-    if setup_auth:
-        from aiobotocore.session import AioSession
-
-        handler_kwargs = dict(session=AioSession(profile="dep-staging-admin"))
-    else:
-        handler_kwargs = dict()
-
     years = parse_datetime(datetime)
 
     itempath = S3ItemPath(
@@ -56,12 +47,11 @@ def main(
         overwrite=False,
         header="time|index|status|paths|comment\n",
         cloud_handler=S3Handler,
-        **handler_kwargs,
     )
 
     this_grid = wofs_grid.grid if grid == "dep" else wofs_grid.ls_grid
-    first_name = dict(dep="row", ls="path")
-    second_name = dict(dep="column", ls="row")
+    first_name = dict(dep="column", ls="path")
+    second_name = dict(dep="row", ls="row")
     grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
     params = [
         {

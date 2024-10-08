@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing_extensions import Annotated
 
+import boto3
 from distributed import Client
 from odc.stac import configure_s3_access
 from pystac import ItemCollection
 from typer import Option, run
 
-from cloud_logger import CsvLogger, S3Handler
+from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
@@ -95,19 +96,10 @@ def main(
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()],
     dataset_id: str = "wofl",
-    setup_auth: Annotated[str, Option(parser=bool_parser)] = "False",
 ) -> None:
-
-    if setup_auth:
-        import boto3
-        from aiobotocore.session import AioSession
-
-        boto3.setup_default_session(profile_name="dep-staging-admin")
-        handler_kwargs = dict(session=AioSession(profile="dep-staging-admin"))
-    else:
-        handler_kwargs = dict()
-
+    boto3.setup_default_session()
     configure_s3_access(cloud_defaults=True, requester_pays=True)
+
     id = (path, row)
     cell = ls_grid.loc[[id]]
 
@@ -134,8 +126,6 @@ def main(
         path=f"{itempath.bucket}/{itempath.log_path()}",
         overwrite=False,
         header="time|index|status|paths|comment\n",
-        cloud_handler=S3Handler,
-        **handler_kwargs,
     )
 
     try:
@@ -183,7 +173,7 @@ def main(
             logger=logger,
         ).run()
     except Exception as e:
-        logger.error([id, "error", e])
+        logger.error([id, "error", [], e])
         raise e
 
     logger.info([id, "complete", paths])

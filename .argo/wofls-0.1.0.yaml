@@ -1,0 +1,114 @@
+kind: Workflow
+metadata:
+  generateName: wofls
+  namespace: argo
+spec:
+  entrypoint: loop-map-wofls
+  serviceAccountName: public-bucket-writer
+  podGC:
+    strategy: OnPodSuccess
+    deleteDelayDuration: 600s
+  parallelism: 400
+  activeDeadlineSeconds: 36000 # 10 hours; should be more than enough
+  tolerations:
+  - key: digitalearthpacific.org/node-purpose
+    operator: Equal
+    value: argo
+    effect: NoSchedule
+  arguments:
+    parameters:
+    - name: version
+      value: "0.0.9-16"  # The version of the data product being made
+    - name: image-tag
+      value: "0.0.9-16-gdc91c45"
+  templates:
+  - name: loop-map-wofls
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
+    dag:
+      tasks:
+        - name: generate-ids
+          template: generate
+          arguments:
+            parameters:
+              - name: limit
+                value: "9999"
+              - name: datetime
+                value: "2020"  # One year "2022", or a period "2020-2021"
+              - name: grid
+                value: "ls"
+              - name: version
+                value: "{{ workflow.parameters.version }}"
+              - name: datasetid
+                value: "wofl"
+
+        - name: process-id
+          depends: generate-ids.Succeeded
+          template: process-wofl-tile
+          arguments:
+            parameters:
+            - name: path
+              value: "{{item.path}}"
+            - name: row
+              value: "{{item.row}}"
+            - name: datetime
+              value: "{{item.datetime}}"
+            - name: version
+              value: "{{ workflow.parameters.version }}"
+          withParam: "{{ tasks.generate-ids.outputs.result }}"
+  - name: generate
+    inputs:
+      parameters:
+      - name: limit
+      - name: datetime
+      - name: version
+      - name: datasetid
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          memory: 100Mi
+          cpu: 1.0
+      command: [ python ]
+      args:
+        - dep_wofs/print_tasks.py
+        - --datetime
+        - "{{ inputs.parameters.datetime }}"
+        - --version
+        - "{{ inputs.parameters.version }}"
+        - --limit
+        - "{{ inputs.parameters.limit }}"
+        - --dataset-id
+        - "{{ inputs.parameters.datasetid }}"
+        - --grid
+        - "ls"
+  - name: process-wofl-tile
+    inputs:
+      parameters:
+      - name: path
+      - name: row
+      - name: datetime
+      - name: version
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          memory: 4Gi
+          cpu: 2.0
+        limits:
+          cpu: 6.0
+          memory: 15Gi
+      command: [ python ]
+      args:
+        - dep_wofs/process_wofls_tile.py
+        - --path
+        - "{{ inputs.parameters.path }}"
+        - --row
+        - "{{ inputs.parameters.row }}"
+        - --datetime
+        - "{{ inputs.parameters.datetime }}"
+        - --version
+        - "{{ inputs.parameters.version }}"
