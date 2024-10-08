@@ -27,7 +27,7 @@ def main(
     dataset_id: str = "wofs",
 ) -> None:
     boto3.setup_default_session()
-    cell = grid.loc[[(row, column)]]
+    cell = grid.loc[[(column, row)]]
 
     itempath = S3ItemPath(
         bucket="dep-public-staging",
