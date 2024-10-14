@@ -13,10 +13,11 @@ from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher, Searcher
+from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask
 
 from grid import ls_grid
-from dep_wofs import WoflProcessor
+from processors import WoflProcessor
 
 
 class MultiItemTask:
@@ -72,6 +73,7 @@ class DailyPostProcessor(XrPostProcessor):
             ds.attrs["stac_properties"]["end_datetime"] = ds.attrs["stac_properties"][
                 "datetime"
             ]
+
         return ds
 
 
@@ -145,8 +147,7 @@ def main(
 
     processor = WoflProcessor()
     post_processor = DailyPostProcessor(
-        convert_to_int16=True,
-        output_value_multiplier=1,
+        convert_to_int16=False,
         output_nodata=1,
         extra_attrs=dict(dep_version=version),
     )
@@ -171,6 +172,7 @@ def main(
             processor=processor,
             post_processor=post_processor,
             logger=logger,
+            stac_creator=StacCreator(daily_itempath, with_raster=True, with_eo=True),
         ).run()
     except Exception as e:
         logger.error([id, "error", [], e])

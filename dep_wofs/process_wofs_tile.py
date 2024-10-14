@@ -27,7 +27,8 @@ def main(
     dataset_id: str = "wofs",
 ) -> None:
     boto3.setup_default_session()
-    cell = grid.loc[[(column, row)]]
+    id = (column, row)
+    cell = grid.loc[(column, row)].geobox
 
     itempath = S3ItemPath(
         bucket="dep-public-staging",
@@ -43,17 +44,14 @@ def main(
     )
 
     stacloader = OdcLoader(
-        crs=cell.crs,
-        dtype="uint16",
+        dtype="uint8",
         chunks=dict(x=4096, y=4096),
         fail_on_error=False,
-        resolution=30,
     )
 
     processor = WofsProcessor(send_area_to_processor=True)
     post_processor = XrPostProcessor(
-        convert_to_int16=True,
-        output_value_multiplier=100,
+        convert_to_int16=False,
         extra_attrs=dict(dep_version=version),
     )
 
@@ -64,8 +62,6 @@ def main(
         header="time|index|status|paths|comment\n",
         cloud_handler=S3Handler,
     )
-
-    id = (row, column)
 
     try:
         paths = Task(

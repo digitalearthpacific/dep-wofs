@@ -1,12 +1,21 @@
 from pathlib import Path
 import geopandas as gpd
+import pandas as pd
 
 from dep_tools.grids import grid, gadm_union
 
 GADM = gadm_union()
 
+# This needs to be addressed. The intersection code for the gridspec is just
+# too slow because it needs to do the buffer. So either fix that, or cache
+# this grid like coastlines
+grid_gpdf = grid(intersect_with=GADM, return_type="GeoDataFrame")
+grid_gs = grid()
 # Use for wofs, i.e. summary products
-grid = grid(intersect_with=GADM, return_type="GeoDataFrame")
+grid = pd.DataFrame(
+    index=grid_gpdf.index,
+    data=dict(geobox=[grid_gs.tile_geobox(i) for i in grid_gpdf.index]),
+)
 
 
 # Used for wofls, i.e. daily products

@@ -1,5 +1,5 @@
 from odc.geo.geobox import GeoBox
-from odc.geo.geom import Geometry
+from odc.geo.geom import Geometry, unary_intersection, multipolygon
 from odc.stac import load
 from odc.stats.plugins.wofs import StatsWofs
 from wofs.virtualproduct import WOfSClassifier
@@ -29,7 +29,9 @@ class WoflProcessor(Processor):
         self.classifier = DepWOfSClassifier()
 
     def process(self, ls_c2_ds):
-        return self.classifier.compute(ls_c2_ds)
+        output = self.classifier.compute(ls_c2_ds)
+        output.water.attrs["nodata"] = 1
+        return output
 
 
 class WofsProcessor(Processor):
@@ -48,8 +50,15 @@ class WofsProcessor(Processor):
         )
         output = summarizer.reduce(prepped)
         if area is not None:
-            land_mask = area.clip(GADM.to_crs(area.crs))
-            geom = Geometry(land_mask.geometry.unary_union, crs=area.crs)
+
+            geom = unary_intersection(
+                [
+                    area.boundingbox.polygon,
+                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                ]
+            )
+            # land_mask = area.clip(GADM.to_crs(area.crs))
+            # geom = Geometry(land_mask.geometry.unary_union, crs=area.crs)
             output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
 
@@ -58,7 +67,7 @@ class WofsProcessor(Processor):
 # the stac catalog, etc. set up
 class WoflWofsProcessor(Processor):
     def process(self, ls_c2_ds, area):
-        return wofs(wofls(ls_c2_ds), area)
+        return wofs(wofl(ls_c2_ds), area)
 
 
 class DepWOfSClassifier(WOfSClassifier):

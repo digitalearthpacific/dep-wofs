@@ -12,7 +12,7 @@ from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher
 from dep_tools.task import AwsStacTask as Task
 from grid import grid
-from wofs import WofsProcessor
+from processors import WoflWofsProcessor
 
 
 SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
@@ -31,7 +31,7 @@ def main(
 ) -> None:
     boto3.setup_default_session()
     configure_s3_access(cloud_defaults=True, requester_pays=True)
-    cell = grid.loc[[(row, column)]]
+    cell = grid.loc[[(column, row)]]
 
     itempath = S3ItemPath(
         bucket="dep-public-staging",
@@ -58,7 +58,7 @@ def main(
         resolution=30,
     )
 
-    processor = WofsProcessor(send_area_to_processor=True)
+    processor = WoflWofsProcessor(send_area_to_processor=True)
     post_processor = XrPostProcessor(
         convert_to_int16=True,
         output_value_multiplier=100,
@@ -70,7 +70,6 @@ def main(
         path=f"{itempath.bucket}/{itempath.log_path()}",
         overwrite=False,
         header="time|index|status|paths|comment\n",
-        cloud_handler=S3Handler,
     )
 
     id = (row, column)
