@@ -99,24 +99,25 @@ class DepWOfSClassifier(WOfSClassifier):
         return super().compute(data)
 
     def _load_dsm(self, gbox):
-        # cache dsm for multiple dates in the same aoi. after testing, should
-        # test if gbox is the same too.
-        if self._dsm is None:
-            # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
-            # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
-            realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
+        # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
+        # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
+        realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
+        # cache dsm for multiple dates in the same aoi.
+        if self._dsm is None or (self._realgeobox and (self._realgeobox != realgeobox)):
+            print("calculating dsm")
+            self._realgeobox = realgeobox
 
             # Use this instead of just searching to be OK across -180
             items = PystacSearcher(
                 catalog="https://earth-search.aws.element84.com/v1",
                 collections=["cop-dem-glo-30"],
-            ).search(realgeobox)
+            ).search(self._realgeobox)
 
             self._dsm = (
-                load(items, geobox=realgeobox)
+                load(items, geobox=self._realgeobox)
                 .rename(dict(data="elevation"))  # renamed for wofs functionality
                 .squeeze()
-                .assign_attrs(crs=realgeobox.crs)
+                .assign_attrs(crs=self._realgeobox.crs)
                 .persist()
             )
         return self._dsm

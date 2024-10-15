@@ -4,12 +4,13 @@ from typing_extensions import Annotated
 import boto3
 from distributed import Client
 from odc.stac import configure_s3_access
+import odc.stac
 from pystac import ItemCollection
 from typer import Option, run
 
 from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
-from dep_tools.loaders import OdcLoader
+from dep_tools.loaders import OdcLoader, StacLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher, Searcher
@@ -88,6 +89,19 @@ class DailyItemPath(S3ItemPath):
         return f"{self.item_prefix}_{self._format_item_id(item_id, join_str='_')}_{self.time:%Y-%m-%d}"
 
 
+class PassThroughOdcLoader(StacLoader):
+    def __init__(self, **kwargs):
+        self._kwargs = kwargs
+
+    def load(self, items, _):
+        breakpoint()
+        return odc.stac.load(
+            items,
+            anchor="center",
+            **self._kwargs,
+        )
+
+
 def bool_parser(raw: str):
     return False if raw == "False" else True
 
@@ -138,11 +152,10 @@ def main(
         return None
 
     SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
-    stacloader = OdcLoader(
+    stacloader = PassThroughOdcLoader(
         dtype="uint16",
         bands=SR_BANDS + ["qa_pixel"],
         chunks=dict(band=1, time=1, x=4096, y=4096),
-        fail_on_error=False,
     )
 
     processor = WoflProcessor()
