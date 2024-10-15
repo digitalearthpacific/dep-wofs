@@ -94,7 +94,6 @@ class PassThroughOdcLoader(StacLoader):
         self._kwargs = kwargs
 
     def load(self, items, _):
-        breakpoint()
         return odc.stac.load(
             items,
             anchor="center",
