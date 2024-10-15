@@ -2,9 +2,12 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 
-from dep_tools.grids import grid, gadm_union
+from dep_tools.grids import grid
 
-GADM = gadm_union()
+# Replace this when the grid gymnastics have passed
+GADM = gpd.read_file(
+    "https://dep-public-staging.s3.us-west-2.amazonaws.com/aoi/aoi.gpkg"
+)
 
 # This needs to be addressed. The intersection code for the gridspec is just
 # too slow because it needs to do the buffer. So either fix that, or cache

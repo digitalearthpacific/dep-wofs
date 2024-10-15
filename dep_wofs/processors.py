@@ -104,7 +104,6 @@ class DepWOfSClassifier(WOfSClassifier):
         realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
         # cache dsm for multiple dates in the same aoi.
         if self._dsm is None or (self._realgeobox and (self._realgeobox != realgeobox)):
-            print("calculating dsm")
             self._realgeobox = realgeobox
 
             # Use this instead of just searching to be OK across -180
