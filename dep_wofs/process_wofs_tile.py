@@ -28,7 +28,7 @@ def main(
 ) -> None:
     boto3.setup_default_session()
     id = (column, row)
-    cell = grid.loc[(column, row)].geobox
+    cell = grid.loc[id].geobox.tolist()[0]
 
     itempath = S3ItemPath(
         bucket="dep-public-staging",
@@ -41,6 +41,7 @@ def main(
     searcher = PystacSearcher(
         catalog="https://stac.staging.digitalearthpacific.io",
         datetime=datetime,
+        collections=["dep_ls_wofl"],
     )
 
     stacloader = OdcLoader(
