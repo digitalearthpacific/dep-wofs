@@ -24,7 +24,7 @@ def main(
     column: Annotated[str, Option(parser=int)],
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()],
-    dataset_id: str = "wofs",
+    dataset_id: str = "wofs_summary_annual",
 ) -> None:
     boto3.setup_default_session()
     id = (column, row)
