@@ -6,6 +6,7 @@ from distributed import Client
 from odc.stac import configure_s3_access
 import odc.stac
 from pystac import ItemCollection
+from pystac_client import Client as PystacClient
 from typer import Option, run
 
 from cloud_logger import CsvLogger
@@ -19,6 +20,25 @@ from dep_tools.task import AwsStacTask
 
 from grid import ls_grid
 from processors import WoflProcessor
+
+
+def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
+    if isinstance(modifiable, dict):
+        if modifiable["type"] == "FeatureCollection":
+            new_features = list()
+            for item_dict in modifiable["features"]:
+                use_alternate_s3_href(item_dict)
+                new_features.append(item_dict)
+            modifiable["features"] = new_features
+        else:
+            stac_object = pystac.read_dict(modifiable)
+            use_alternate_s3_href(stac_object)
+            modifiable.update(stac_object.to_dict())
+    else:
+        for _, asset in modifiable.assets.items():
+            asset_dict = asset.to_dict()
+            if "alternate" in asset_dict.keys():
+                asset.href = asset.to_dict()["alternate"]["s3"]["href"]
 
 
 class MultiItemTask:
@@ -126,8 +146,13 @@ def main(
         time=datetime,
     )
 
+    client = PystacClient.open(
+        "https://landsatlook.usgs.gov/stac-server",
+        modifier=use_alternate_s3_href,
+    )
+
     searcher = LandsatPystacSearcher(
-        catalog="https://earth-search.aws.element84.com/v1",
+        client=client,
         exclude_platforms=["landsat-7"],
         query={
             "landsat:wrs_row": dict(eq=str(row).zfill(3)),
