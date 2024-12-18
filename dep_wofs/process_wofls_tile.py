@@ -1,17 +1,20 @@
 from datetime import datetime
+from pathlib import Path
 from typing_extensions import Annotated
+import warnings
 
 import boto3
 from distributed import Client
 from odc.stac import configure_s3_access
 import odc.stac
-from pystac import ItemCollection
-from pystac_client import Client as PystacClient
+from pystac import ItemCollection, read_dict
+import pystac_client
 from typer import Option, run
 
 from cloud_logger import CsvLogger
+from dep_tools.aws import object_exists, s3_dump
 from dep_tools.exceptions import EmptyCollectionError
-from dep_tools.loaders import OdcLoader, StacLoader
+from dep_tools.loaders import StacLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher, Searcher
@@ -20,6 +23,8 @@ from dep_tools.task import AwsStacTask
 
 from grid import ls_grid
 from processors import WoflProcessor
+
+BUCKET = "dep-public-staging"
 
 
 def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
@@ -31,7 +36,7 @@ def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
                 new_features.append(item_dict)
             modifiable["features"] = new_features
         else:
-            stac_object = pystac.read_dict(modifiable)
+            stac_object = read_dict(modifiable)
             use_alternate_s3_href(stac_object)
             modifiable.update(stac_object.to_dict())
     else:
@@ -43,8 +48,15 @@ def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
 
 class MultiItemTask:
     def __init__(
-        self, items: ItemCollection, itempath, searcher, post_processor, **kwargs
+        self,
+        tile_id,
+        items: ItemCollection,
+        itempath,
+        searcher,
+        post_processor,
+        **kwargs,
     ):
+        self._tile_id = tile_id
         self._items = items
         self._itempath = itempath
         self._searcher = searcher
@@ -58,12 +70,29 @@ class MultiItemTask:
             self._itempath.time = item.get_datetime()
             self._searcher.item = item
             self._post_processor.properties = item.properties
-            paths += self._task_class(
-                self._itempath,
-                searcher=self._searcher,
-                post_processor=self._post_processor,
-                **self._kwargs,
-            ).run()
+            if not object_exists(
+                bucket=BUCKET, key=self._itempath.stac_path(self._tile_id)
+            ):
+                try:
+                    paths += self._task_class(
+                        self._itempath,
+                        id=self._tile_id,
+                        searcher=self._searcher,
+                        post_processor=self._post_processor,
+                        **self._kwargs,
+                    ).run()
+                except Exception as e:
+                    warnings.warn(
+                        "Error from one of the dailies, check the output logs"
+                    )
+                    daily_log_path = Path(self._itempath.log_path()).with_suffix(
+                        ".error.txt"
+                    )
+                    boto3_client = boto3.client("s3")
+                    s3_dump(
+                        data=e, bucket=BUCKET, key=daily_log_path, client=boto3_client
+                    )
+
         return paths
 
 
@@ -110,6 +139,8 @@ class DailyItemPath(S3ItemPath):
 
 
 class PassThroughOdcLoader(StacLoader):
+    """Just loads the items"""
+
     def __init__(self, **kwargs):
         self._kwargs = kwargs
 
@@ -121,10 +152,6 @@ class PassThroughOdcLoader(StacLoader):
         )
 
 
-def bool_parser(raw: str):
-    return False if raw == "False" else True
-
-
 def main(
     path: Annotated[str, Option(parser=int)],
     row: Annotated[str, Option(parser=int)],
@@ -132,33 +159,33 @@ def main(
     version: Annotated[str, Option()],
     dataset_id: str = "wofl",
 ) -> None:
-    boto3.setup_default_session()
     configure_s3_access(cloud_defaults=True, requester_pays=True)
 
     id = (path, row)
     cell = ls_grid.loc[[id]]
 
     itempath = S3ItemPath(
-        bucket="dep-public-staging",
+        bucket=BUCKET,
         sensor="ls",
         dataset_id=dataset_id,
         version=version,
         time=datetime,
     )
 
-    client = PystacClient.open(
+    client = pystac_client.Client.open(
         "https://landsatlook.usgs.gov/stac-server",
         modifier=use_alternate_s3_href,
     )
+    #    client = pystac_client.Client.open( "https://earth-search.aws.element84.com/v1",)
 
     searcher = LandsatPystacSearcher(
         client=client,
-        exclude_platforms=["landsat-7"],
         query={
             "landsat:wrs_row": dict(eq=str(row).zfill(3)),
             "landsat:wrs_path": dict(eq=str(path).zfill(3)),
         },
         datetime=datetime,
+        collections=["landsat-c2l2-sr"],
     )
 
     logger = CsvLogger(
@@ -171,7 +198,8 @@ def main(
     try:
         items = searcher.search(cell)
     except EmptyCollectionError as e:
-        logger.error([id, "error", e])
+        logger.error([id, "no items found", e])
+        warnings.warn("No stac items found, exiting")
         # Don't reraise, it just means there's no data
         return None
 
@@ -180,6 +208,11 @@ def main(
         dtype="uint16",
         bands=SR_BANDS + ["qa_pixel"],
         chunks=dict(band=1, time=1, x=4096, y=4096),
+        stac_cfg={
+            "landsat-c2l2-sr": {
+                "assets": {"*": {"nodata": 0}, "qa_pixel": {"nodata": 1}}
+            }
+        },
     )
 
     processor = WoflProcessor()
@@ -190,7 +223,7 @@ def main(
     )
 
     daily_itempath = DailyItemPath(
-        bucket="dep-public-staging",
+        bucket=BUCKET,
         sensor="ls",
         dataset_id=dataset_id,
         version=version,
@@ -200,7 +233,7 @@ def main(
 
     try:
         paths = MultiItemTask(
-            id=id,
+            tile_id=id,
             items=items,
             itempath=daily_itempath,
             area=cell,
