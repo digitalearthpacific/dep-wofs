@@ -11,7 +11,7 @@ import grid as wofs_grid
 
 
 def parse_datetime(datetime):
-    years = datetime.split("-")
+    years = datetime.split("_")
     if len(years) == 2:
         years = range(int(years[0]), int(years[1]) + 1)
     elif len(years) > 2:
@@ -29,7 +29,9 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    dataset_id: str = "wofs",
+    dataset_id: Optional[str] = "wofs",
+    save_to_file: Annotated[str, typer.Option(parser=bool_parser)] = "False",
+    file_path: Optional[str] = "/tmp/tasks.txt",
 ) -> None:
     years = parse_datetime(datetime)
 
@@ -65,6 +67,10 @@ def main(
 
     if limit is not None:
         params = params[0 : int(limit)]
+
+    if save_to_file:
+        with open(str(file_path), "w") as dst:
+            json.dump(params, dst)
 
     json.dump(params, sys.stdout)
 
