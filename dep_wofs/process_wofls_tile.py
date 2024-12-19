@@ -90,7 +90,10 @@ class MultiItemTask:
                     )
                     boto3_client = boto3.client("s3")
                     s3_dump(
-                        data=e, bucket=BUCKET, key=daily_log_path, client=boto3_client
+                        data=e,
+                        bucket=BUCKET,
+                        key=str(daily_log_path),
+                        client=boto3_client,
                     )
 
         return paths
