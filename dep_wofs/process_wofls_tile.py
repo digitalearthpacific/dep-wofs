@@ -179,7 +179,6 @@ def main(
         "https://landsatlook.usgs.gov/stac-server",
         modifier=use_alternate_s3_href,
     )
-    #    client = pystac_client.Client.open( "https://earth-search.aws.element84.com/v1",)
 
     searcher = LandsatPystacSearcher(
         client=client,
