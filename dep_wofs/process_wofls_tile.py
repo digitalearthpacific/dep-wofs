@@ -247,7 +247,8 @@ def main(
             stac_creator=StacCreator(daily_itempath, with_raster=True, with_eo=True),
         ).run()
     except Exception as e:
-        logger.error([id, "error", [], e])
+        # Quoting string here to escape newlines
+        logger.error([id, "error", [], f'"{e}"'])
         raise e
 
     logger.info([id, "complete", paths])

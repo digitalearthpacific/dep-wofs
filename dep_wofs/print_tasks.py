@@ -30,40 +30,45 @@ def main(
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
     dataset_id: Optional[str] = "wofs",
+    overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     save_to_file: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     file_path: Optional[str] = "/tmp/tasks.txt",
 ) -> None:
     years = parse_datetime(datetime)
-
-    itempath = S3ItemPath(
-        bucket="dep-public-staging",
-        sensor="ls",
-        dataset_id=dataset_id,
-        version=version,
-        time=datetime,
-    )
-
-    logger = CsvLogger(
-        name=dataset_id,
-        path=f"{itempath.bucket}/{itempath.log_path()}",
-        overwrite=False,
-        header="time|index|status|paths|comment\n",
-        cloud_handler=S3Handler,
-    )
-
     this_grid = wofs_grid.grid if grid == "dep" else wofs_grid.ls_grid
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
-    grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
-    params = [
-        {
-            # we could take fromthe grid if we name the dep_grid multiindex
-            first_name[grid]: region[0][0],
-            second_name[grid]: region[0][1],
-            "datetime": region[1],
-        }
-        for region in product(grid_subset.index, years)
-    ]
+
+    params = list()
+    for year in years:
+        itempath = S3ItemPath(
+            bucket="dep-public-staging",
+            sensor="ls",
+            dataset_id=dataset_id,
+            version=version,
+            time=year,
+        )
+
+        logger = CsvLogger(
+            name=dataset_id,
+            path=f"{itempath.bucket}/{itempath.log_path()}",
+            overwrite=overwrite_existing_log,
+            header="time|index|status|paths|comment\n",
+            cloud_handler=S3Handler,
+        )
+
+        grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
+
+        these_params = [
+            {
+                # we could take fromthe grid if we name the dep_grid multiindex
+                first_name[grid]: region[0][0],
+                second_name[grid]: region[0][1],
+                "datetime": region[1],
+            }
+            for region in product(grid_subset.index, [year])
+        ]
+        params += these_params
 
     if limit is not None:
         params = params[0 : int(limit)]
