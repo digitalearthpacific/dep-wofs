@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+import traceback
 from typing_extensions import Annotated
 import warnings
 
@@ -89,8 +90,9 @@ class MultiItemTask:
                         ".error.txt"
                     )
                     boto3_client = boto3.client("s3")
+
                     s3_dump(
-                        data=e,
+                        data=traceback.format_exc(),
                         bucket=BUCKET,
                         key=str(daily_log_path),
                         client=boto3_client,
