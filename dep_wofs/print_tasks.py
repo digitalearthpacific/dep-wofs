@@ -29,7 +29,7 @@ def main(
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
-    dataset_id: Optional[str] = "wofs",
+    dataset_id: Optional[str] = "wofs_summary_annual",
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     save_to_file: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     file_path: Optional[str] = "/tmp/tasks.txt",

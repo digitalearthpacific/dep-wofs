@@ -8,8 +8,8 @@ spec:
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
-  parallelism: 400
-  activeDeadlineSeconds: 36000 # 10 hours; should be more than enough
+  parallelism: 100
+  activeDeadlineSeconds: 36000 
   tolerations:
   - key: digitalearthpacific.org/node-purpose
     operator: Equal
@@ -18,9 +18,9 @@ spec:
   arguments:
     parameters:
     - name: version
-      value: "0.0.9-16"  # The version of the data product being made
+      value: "0.0.9-24" 
     - name: image-tag
-      value: "0.0.9-16-gdc91c45"
+      value: "0.0.9-33-g6696e2f"
   templates:
   - name: loop-map-wofls
     retryStrategy:
@@ -35,14 +35,15 @@ spec:
               - name: limit
                 value: "9999"
               - name: datetime
-                value: "2020"  # One year "2022", or a period "2020-2021"
+                value: "2010_2019"
               - name: grid
                 value: "ls"
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: datasetid
                 value: "wofl"
-
+              - name: overwrite-existing-log
+                value: "False"
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofl-tile
@@ -64,6 +65,7 @@ spec:
       - name: datetime
       - name: version
       - name: datasetid
+      - name: overwrite-existing-log
     container:
       image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
       imagePullPolicy: IfNotPresent
@@ -84,6 +86,8 @@ spec:
         - "{{ inputs.parameters.datasetid }}"
         - --grid
         - "ls"
+        - --overwrite-existing-log
+        - "{{ inputs.parameters.overwrite-existing-log }}"
   - name: process-wofl-tile
     inputs:
       parameters:

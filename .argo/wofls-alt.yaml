@@ -1,72 +1,80 @@
 kind: Workflow
 metadata:
-  generateName: wofs
+  generateName: wofls
   namespace: argo
 spec:
-  entrypoint: loop-map-wofs
+  entrypoint: loop-map-wofls
   serviceAccountName: public-bucket-writer
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
-  parallelism: 600
-  podMetadata:
-    labels:
-      app: wofs
-    annotations:
-      karpenter.sh/do-not-disrupt: "true"
-  nodeSelector:
-    karpenter.sh/capacity-type: "spot"
-  hostAliases:
-    - ip: "52.92.184.90"
-      hostnames:
-        - "dep-public-staging.s3.us-west-2.amazonaws.com"
+  parallelism: 500
+  activeDeadlineSeconds: 36000 
+  tolerations:
+  - key: digitalearthpacific.org/node-purpose
+    operator: Equal
+    value: argo
+    effect: NoSchedule
   arguments:
     parameters:
     - name: version
-      value: "0.0.9-26"  # The version of the data product being made
+      value: "0.0.9-24" 
     - name: image-tag
-      value: "0.0.9-33-g6696e2f"
+      value: "0.0.9-24-gaa8c570"
   templates:
-  - name: loop-map-wofs
+  - name: loop-map-wofls
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
     dag:
       tasks:
+        - name: generate-years
+          template: gen-number-list
         - name: generate-ids
+          depends: generate-years.Succeeded
           template: generate
           arguments:
             parameters:
               - name: limit
                 value: "9999"
               - name: datetime
-                value: "2021"  # One year "2022", or a period "2020-2021"
+                value: "{{ item }}"
+              - name: grid
+                value: "ls"
               - name: version
                 value: "{{ workflow.parameters.version }}"
-              - name: dataset-id
-                value: "wofs_summary_annual"
+              - name: datasetid
+                value: "wofl"
+          withParam: "{{tasks.generate-years.outputs.result }}"
         - name: process-id
           depends: generate-ids.Succeeded
-          template: process-wofs-tile
-          retryStrategy:
-            limit: "2"
-            retryPolicy: "Always"
+          template: process-wofl-tile
           arguments:
             parameters:
+            - name: path
+              value: "{{item.path}}"
             - name: row
               value: "{{item.row}}"
-            - name: column
-              value: "{{item.column}}"
             - name: datetime
               value: "{{item.datetime}}"
             - name: version
               value: "{{ workflow.parameters.version }}"
           withParam: "{{ tasks.generate-ids.outputs.result }}"
-
+  - name: gen-number-list
+    script:
+      image: python:alpine3.6
+      command: [python]
+      source: |
+        import json
+        import sys
+        json.dump([i for i in range(1984, 2025)], sys.stdout)
   - name: generate
     inputs:
       parameters:
       - name: limit
       - name: datetime
       - name: version
-      - name: dataset-id
+      - name: datasetid
     container:
       image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
       imagePullPolicy: IfNotPresent
@@ -84,12 +92,14 @@ spec:
         - --limit
         - "{{ inputs.parameters.limit }}"
         - --dataset-id
-          "{{ inputs.parameters.dataset_id }}"
-  - name: process-wofs-tile
+        - "{{ inputs.parameters.datasetid }}"
+        - --grid
+        - "ls"
+  - name: process-wofl-tile
     inputs:
       parameters:
+      - name: path
       - name: row
-      - name: column
       - name: datetime
       - name: version
     container:
@@ -97,22 +107,19 @@ spec:
       imagePullPolicy: IfNotPresent
       resources:
         requests: 
-          memory: 5Gi
-          cpu: 4.0
+          memory: 4Gi
+          cpu: 2.0
         limits:
           cpu: 6.0
           memory: 15Gi
       command: [ python ]
       args:
-        - dep_wofs/process_wofs_tile.py
+        - dep_wofs/process_wofls_tile.py
+        - --path
+        - "{{ inputs.parameters.path }}"
         - --row
         - "{{ inputs.parameters.row }}"
-        - --column
-        - "{{ inputs.parameters.column }}"
         - --datetime
         - "{{ inputs.parameters.datetime }}"
         - --version
         - "{{ inputs.parameters.version }}"
-      env:
-        - name: DASK_ARRAY__RECHUNK__METHOD
-          value: "tasks"

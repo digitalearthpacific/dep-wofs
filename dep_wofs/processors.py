@@ -1,5 +1,5 @@
 from odc.geo.geobox import GeoBox
-from odc.geo.geom import Geometry, unary_intersection, multipolygon
+from odc.geo.geom import Geometry, unary_intersection
 from odc.stac import load
 from odc.stats.plugins.wofs import StatsWofs
 from wofs.virtualproduct import WOfSClassifier
@@ -57,17 +57,8 @@ class WofsProcessor(Processor):
                     Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
                 ]
             )
-            # land_mask = area.clip(GADM.to_crs(area.crs))
-            # geom = Geometry(land_mask.geometry.unary_union, crs=area.crs)
             output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
-
-
-# Eventually we will create wofs from wofl not from scratch, but we need
-# the stac catalog, etc. set up
-class WoflWofsProcessor(Processor):
-    def process(self, ls_c2_ds, area):
-        return wofs(wofl(ls_c2_ds), area)
 
 
 class DepWOfSClassifier(WOfSClassifier):
@@ -106,8 +97,10 @@ class DepWOfSClassifier(WOfSClassifier):
         if self._dsm is None or (self._realgeobox and (self._realgeobox != realgeobox)):
             self._realgeobox = realgeobox
 
-            # Use this instead of just searching to be OK across -180
+            # Use PystacSearcher instead of just searching to be OK across -180
             items = PystacSearcher(
+                # Note that this server can get overloaded and refuse connections
+                # when running with many parallel pods (say 100+)
                 catalog="https://earth-search.aws.element84.com/v1",
                 collections=["cop-dem-glo-30"],
             ).search(self._realgeobox)
