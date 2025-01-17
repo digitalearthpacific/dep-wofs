@@ -8,6 +8,7 @@ from cloud_logger import CsvLogger, filter_by_log, S3Handler
 from dep_tools.namers import S3ItemPath
 
 import grid as wofs_grid
+from config import BUCKET
 
 
 def parse_datetime(datetime):
@@ -42,7 +43,7 @@ def main(
     params = list()
     for year in years:
         itempath = S3ItemPath(
-            bucket="dep-public-staging",
+            bucket=BUCKET,
             sensor="ls",
             dataset_id=dataset_id,
             version=version,

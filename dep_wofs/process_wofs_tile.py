@@ -11,6 +11,7 @@ from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import PystacSearcher
 from dep_tools.task import AwsStacTask as Task
 
+from config import BUCKET
 from grid import grid
 from processors import WofsProcessor
 
@@ -31,7 +32,7 @@ def main(
     cell = grid.loc[id].geobox.tolist()[0]
 
     itempath = S3ItemPath(
-        bucket="dep-public-staging",
+        bucket=BUCKET,
         sensor="ls",
         dataset_id=dataset_id,
         version=version,

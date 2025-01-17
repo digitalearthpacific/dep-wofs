@@ -22,10 +22,9 @@ from dep_tools.searchers import LandsatPystacSearcher, Searcher
 from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask
 
+from config import BUCKET
 from grid import ls_grid
 from processors import WoflProcessor
-
-BUCKET = "dep-public-staging"
 
 
 def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
