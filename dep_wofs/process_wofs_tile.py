@@ -40,7 +40,7 @@ def main(
     )
 
     searcher = PystacSearcher(
-        catalog="https://stac.staging.digitalearthpacific.io",
+        catalog="https://stac.prod.digitalearthpacific.io",
         datetime=datetime,
         collections=["dep_ls_wofl"],
     )
