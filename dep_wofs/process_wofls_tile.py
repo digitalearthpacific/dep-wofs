@@ -247,7 +247,7 @@ def main(
             logger=logger,
             stac_creator=StacCreator(
                 itempath=daily_itempath,
-                collection_url_root=STAGING_OR_PROD,
+                collection_url_root=f"https://stac.{STAGING_OR_PROD}.digitalearthpacific.io/collections",
                 with_raster=True,
                 with_eo=True,
             ),
