@@ -22,7 +22,7 @@ from dep_tools.searchers import LandsatPystacSearcher, Searcher
 from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask
 
-from config import BUCKET
+from config import BUCKET, STAGING_OR_PROD
 from grid import ls_grid
 from processors import WoflProcessor
 
@@ -245,7 +245,12 @@ def main(
             processor=processor,
             post_processor=post_processor,
             logger=logger,
-            stac_creator=StacCreator(daily_itempath, with_raster=True, with_eo=True),
+            stac_creator=StacCreator(
+                itempath=daily_itempath,
+                collection_url_root=STAGING_OR_PROD,
+                with_raster=True,
+                with_eo=True,
+            ),
         ).run()
     except Exception as e:
         # Quoting string here to escape newlines

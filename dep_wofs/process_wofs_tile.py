@@ -9,9 +9,10 @@ from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import PystacSearcher
+from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask as Task
 
-from config import BUCKET
+from config import BUCKET, STAGING_OR_PROD
 from grid import grid
 from processors import WofsProcessor
 
@@ -40,7 +41,7 @@ def main(
     )
 
     searcher = PystacSearcher(
-        catalog="https://stac.prod.digitalearthpacific.io",
+        catalog=f"https://stac.{STAGING_OR_PROD}.digitalearthpacific.io",
         datetime=datetime,
         collections=["dep_ls_wofl"],
     )
@@ -75,6 +76,12 @@ def main(
             processor=processor,
             post_processor=post_processor,
             logger=logger,
+            stac_creator=StacCreator(
+                itempath=itempath,
+                collection_url_root=STAGING_OR_PROD,
+                with_raster=True,
+                with_eo=True,
+            ),
         ).run()
     except Exception as e:
         logger.error([id, "error", e])
