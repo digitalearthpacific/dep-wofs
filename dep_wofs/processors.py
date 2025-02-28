@@ -1,7 +1,7 @@
 from odc.geo.geobox import GeoBox
 from odc.geo.geom import Geometry, unary_intersection
 from odc.stac import load
-from odc.stats.plugins.wofs import StatsWofs
+from odc.stats.plugins.wofs import StatsWofs, StatsWofsFullHistory
 from wofs.virtualproduct import WOfSClassifier
 from xarray import Dataset
 
@@ -31,6 +31,22 @@ class WoflProcessor(Processor):
     def process(self, ls_c2_ds):
         output = self.classifier.compute(ls_c2_ds)
         output.water.attrs["nodata"] = 1
+        return output
+
+
+class WofsFullHistoryProcessor(Processor):
+    def process(self, wofs_annuals, area=None) -> Dataset:
+        summarizer = StatsWofsFullHistory()
+        output = summarizer.reduce(wofs_annuals)
+        if area is not None:
+
+            geom = unary_intersection(
+                [
+                    area.boundingbox.polygon,
+                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                ]
+            )
+            output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
 
 
