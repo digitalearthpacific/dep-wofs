@@ -22,7 +22,7 @@ from dep_tools.searchers import LandsatPystacSearcher, Searcher
 from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask
 
-from config import BUCKET, STAGING_OR_PROD
+from config import BUCKET, OUTPUT_COLLECTION_ROOT
 from grid import ls_grid
 from processors import WoflProcessor
 
@@ -247,7 +247,7 @@ def main(
             logger=logger,
             stac_creator=StacCreator(
                 itempath=daily_itempath,
-                collection_url_root=f"https://stac.{STAGING_OR_PROD}.digitalearthpacific.io/collections",
+                collection_url_root=OUTPUT_COLLECTION_ROOT,
                 with_raster=True,
                 with_eo=True,
             ),

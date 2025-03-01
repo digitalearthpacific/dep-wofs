@@ -12,7 +12,7 @@ from dep_tools.searchers import PystacSearcher
 from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask as Task
 
-from config import BUCKET, STAGING_OR_PROD
+from config import BUCKET, OUTPUT_COLLECTION_ROOT
 from grid import grid
 from processors import WofsFullHistoryProcessor
 
@@ -37,7 +37,7 @@ def main(
     )
 
     searcher = PystacSearcher(
-        catalog=f"https://stac.{STAGING_OR_PROD}.digitalearthpacific.io",
+        catalog=f"https://stac.prod.digitalearthpacific.io",
         datetime=datetime,
         collections=["dep_ls_wofs_summary_annual"],
     )
@@ -75,7 +75,7 @@ def main(
             logger=logger,
             stac_creator=StacCreator(
                 itempath=itempath,
-                collection_url_root=f"https://stac.{STAGING_OR_PROD}.digitalearthpacific.io/collections",
+                collection_url_root=OUTPUT_COLLECTION_ROOT,
                 with_raster=True,
                 with_eo=True,
             ),

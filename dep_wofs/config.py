@@ -1,5 +1,6 @@
 import os
-from typing import Literal
 
 BUCKET = os.environ.get("WOFS_BUCKET", "dep-public-data")
-STAGING_OR_PROD: Literal["staging", "prod"] = "prod"
+OUTPUT_COLLECTION_ROOT = os.environ.get(
+    "OUTPUT_COLLECTION_ROOT", "https://stac.digitalearthpacific.org"
+)
