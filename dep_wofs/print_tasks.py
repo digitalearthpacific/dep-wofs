@@ -47,7 +47,7 @@ def main(
             sensor="ls",
             dataset_id=dataset_id,
             version=version,
-            time=year,
+            time=str(year).replace("/", "_"),
         )
 
         logger = CsvLogger(
