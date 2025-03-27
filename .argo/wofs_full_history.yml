@@ -4,7 +4,8 @@ metadata:
   namespace: argo
 spec:
   entrypoint: loop-map-wofs
-  serviceAccountName: public-bucket-writer
+  serviceAccountName: open-data-bucket-writer
+    #serviceAccountName: public-bucket-writer
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
@@ -20,14 +21,24 @@ spec:
     - ip: "52.92.184.90"
       hostnames:
         - "dep-public-staging.s3.us-west-2.amazonaws.com"
+    - ip: "3.5.85.43"
+      hostnames:
+        - "dep-public-data.s3.us-west-2.amazonaws.com"
   arguments:
     parameters:
     - name: version
-      value: "0.0.9-26"  # The version of the data product being made
+      value: "0.2.0"  # The version of the data product being made
     - name: image-tag
-      value: "0.0.9-33-g6696e2f"
+      value: "0.2.0dev7"
+    - name: output-bucket
+      value: "dep-public-data"
+    - name: output-collection-root
+      value: "https://stac.digitalearthpacific.org"
   templates:
   - name: loop-map-wofs
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
     dag:
       tasks:
         - name: generate-ids
@@ -37,11 +48,11 @@ spec:
               - name: limit
                 value: "9999"
               - name: datetime
-                value: "2021"  # One year "2022", or a period "2020-2021"
+                value: "1984/2023" 
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: dataset-id
-                value: "wofs_summary_annual"
+                value: "wofs_summary_alltime"
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofs-tile
@@ -84,7 +95,12 @@ spec:
         - --limit
         - "{{ inputs.parameters.limit }}"
         - --dataset-id
-          "{{ inputs.parameters.dataset_id }}"
+        - "{{ inputs.parameters.dataset-id }}"
+      env:
+        - name: WOFS_BUCKET
+          value: "{{ workflow.parameters.output-bucket }}"
+        - name: OUTPUT_COLLECTION_ROOT
+          value: "{{ workflow.parameters.output-collection-root }}"
   - name: process-wofs-tile
     inputs:
       parameters:
@@ -104,7 +120,7 @@ spec:
           memory: 15Gi
       command: [ python ]
       args:
-        - dep_wofs/process_wofs_tile.py
+        - dep_wofs/process_wofs_full_history_tile.py
         - --row
         - "{{ inputs.parameters.row }}"
         - --column
@@ -116,3 +132,7 @@ spec:
       env:
         - name: DASK_ARRAY__RECHUNK__METHOD
           value: "tasks"
+        - name: WOFS_BUCKET
+          value: "{{ workflow.parameters.output-bucket }}"
+        - name: OUTPUT_COLLECTION_ROOT
+          value: "{{ workflow.parameters.output-collection-root }}"
