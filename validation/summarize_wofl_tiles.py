@@ -1,6 +1,7 @@
 from geocube.api.core import make_geocube
 import geopandas as gpd
 from numpy import bitwise_and
+from odc.algo import mask_cleanup
 import rioxarray
 import xarray as xr
 
@@ -44,23 +45,30 @@ def decode_wofl(wofl):
     )
 
 
-def add_ocean_and_land_classes(decoded_wofl):
+def get_ocean_and_land_classes(ds, filters=[("erosion", 3)]):
     land = (
         make_geocube(
-            GADM.to_crs(decoded_wofl.rio.crs),
-            like=decoded_wofl.water,
+            GADM.to_crs(ds.rio.crs),
+            like=next(iter(ds.data_vars.values())),
             fill=0,
         )
         .astype(bool)
         .land
     )
-    land_wofl = xr.Dataset(
-        {name + "_land": (decoded_wofl[name] & land) for name in decoded_wofl}
-    )
+    filtered_land = mask_cleanup(land, filters)
+
+    ocean = ~land
+    filtered_ocean = mask_cleanup(ocean, filters)
+
+    land_wofl = xr.Dataset({name + "_land": (ds[name] & filtered_land) for name in ds})
     ocean_wofl = xr.Dataset(
-        {name + "_ocean": (decoded_wofl[name] & ~land) for name in decoded_wofl}
+        {name + "_ocean": (ds[name] & filtered_ocean) for name in ds}
     )
-    return xr.merge([decoded_wofl, land_wofl, ocean_wofl])
+    return xr.merge([land_wofl, ocean_wofl])
+
+
+def add_ocean_and_land_classes(decoded_wofl):
+    return xr.merge([decoded_wofl, get_ocean_and_land_classes(decoded_wofl)])
 
 
 def summarize_wofl_tile(wofl):
