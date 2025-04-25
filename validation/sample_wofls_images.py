@@ -3,6 +3,7 @@ from random import sample, seed
 import warnings
 import xml.etree.ElementTree as ET
 
+from geocube.api.core import make_geocube
 import geopandas as gpd
 import numpy as np
 from odc.algo import mask_cleanup
@@ -11,20 +12,46 @@ from odc.stats.plugins.wofs import StatsWofs
 from osgeo.gdal import BuildVRT
 import pandas as pd
 from pystac_client import Client
+from retry import retry
 import rioxarray
 from shapely.geometry import Point
+import xarray as xr
 
-from dep_wofs.grid import ls_grid
+from dep_wofs.grid import ls_grid, GADM
 from dep_wofs.utils import use_alternate_s3_href
 
-from summarize_wofl_tiles import get_ocean_and_land_classes
-
 DEP_CLIENT = Client.open("https://stac.digitalearthpacific.org")
-OUTPUT_DIR = Path("data/validation")
+OUTPUT_DIR = Path(__file__).parent / "../data/validation"
 
 
-def sample_catalog(pathrows, query=dict(), n_each=1):
-    return [sample_tile(path, row, query, n_each)[0] for path, row in pathrows]
+def get_ocean_and_land_classes(ds, filters=[("erosion", 3)]):
+    GADM["land"] = 1
+    land = (
+        make_geocube(
+            GADM.to_crs(ds.rio.crs),
+            like=next(iter(ds.data_vars.values())),
+            fill=0,
+        )
+        .astype(bool)
+        .land
+    )
+    filtered_land = mask_cleanup(land, filters)
+
+    ocean = ~land
+    filtered_ocean = mask_cleanup(ocean, filters)
+    breakpoint()
+
+    land_wofl = xr.Dataset({name + "_land": (ds[name] & filtered_land) for name in ds})
+    ocean_wofl = xr.Dataset(
+        {name + "_ocean": (ds[name] & filtered_ocean) for name in ds}
+    )
+    return xr.merge([land_wofl, ocean_wofl])
+
+
+def sample_catalog(pathrows, query=dict(), n_each=3):
+    return [
+        item for path, row in pathrows for item in sample_tile(path, row, query, n_each)
+    ]
 
 
 def sample_tile(path, row, query=dict(), n=1):
@@ -53,19 +80,31 @@ def place_random_points(item, n=25):
     """Load the "dry" and "wet" wofl classes for the given item, and sample
     n points within each zone."""
     wofl = odc.stac.load([item]).squeeze(drop=True)  # drop time
-    classes_to_sample = get_classes_to_sample(wofl)
-    counts = get_counts(classes_to_sample, n)
-    points = pd.concat(
-        [
-            sample_bool_da(classes_to_sample[var], count).assign(name=var)
-            for var, count in counts.items()
-        ]
-    )
+    oafile = OUTPUT_DIR / f"{item.properties['landsat:scene_id']}_classes.tif"
+    if not oafile.exists():
+        classes_to_sample = get_classes_to_sample(wofl)
+        classes_to_sample.astype(int).rio.write_crs(wofl.rio.crs).rio.to_raster(
+            oafile,
+            driver="COG",
+            overwrite=True,
+        )
 
-    points.to_file(OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}.gpkg')
-    points.drop(["name"], axis=1).assign(label="").sample(frac=1).to_file(
-        OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}_blinded.gpkg'
-    )
+        counts = get_counts(classes_to_sample, n)
+        points = pd.concat(
+            [
+                sample_bool_da(classes_to_sample[var], count).assign(name=var)
+                for var, count in counts.items()
+            ]
+        )
+
+        output_file = OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}.gpkg'
+
+
+#    if not output_file.exists():
+#        points.to_file(output_file)
+#        points.drop(["name"], axis=1).assign(label="").sample(frac=1).to_file(
+#            OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}_blinded.gpkg'
+#        )
 
 
 def get_classes_to_sample(wofl):
@@ -120,6 +159,8 @@ def sample_bool_da(bool_da, n, minimum_spacing=250):
         ]
         attempts += 1
 
+    points = points[0 : min(n, len(points))]
+
     return gpd.GeoDataFrame(
         geometry=points,
         crs=bool_da.odc.crs,
@@ -132,6 +173,7 @@ def min_distance_to_series(point, point_series):
     return min(dists[dists > 0])
 
 
+@retry(tries=3)
 def create_rgb_mosaic(item):
     """Create a 3-band rgb mosaic and corresponding vrt for the Landsat item
     identified by the metadata (specifically item.properties["landsat:scene_id"])
@@ -147,18 +189,22 @@ def create_rgb_mosaic(item):
         collections=["landsat-c2l2-sr"],
         query={"landsat:scene_id": {"eq": scene_id}},
     ).items()
-    tif_file = (OUTPUT_DIR / f"{scene_id}_rgb.tif",)
+    tif_file = OUTPUT_DIR / f"{scene_id}_rgb.tif"
     vrt_file = OUTPUT_DIR / f"{scene_id}_rgb.vrt"
     # load item and write 3-band tiff
-    odc.stac.load(
-        ls_item, chunks=dict(x=2048, y=2048), bands=["red", "green", "blue"]
-    ).squeeze().rio.to_raster(tif_file, driver="COG")
 
-    # Create a VRT with standard stretch that seems to look decent in most
-    # situations.
-    # srcNodata ensures sources are complex sources
-    BuildVRT(vrt_file, tif_file, srcNodata=0)
-    set_vrt_min_max(vrt_file)
+
+#    if not tif_file.exists():
+#        odc.stac.load(
+#            ls_item, chunks=dict(x=2048, y=2048), bands=["red", "green", "blue"]
+#        ).squeeze().rio.to_raster(tif_file, driver="COG", overwrite=True)
+#
+# Create a VRT with standard stretch that seems to look decent in most
+# situations.
+# srcNodata ensures sources are complex sources
+#    if not vrt_file.exists():
+#        BuildVRT(vrt_file, tif_file, srcNodata=0)
+#        set_vrt_min_max(vrt_file)
 
 
 def set_vrt_min_max(vrt_path):
@@ -173,7 +219,23 @@ def set_vrt_min_max(vrt_path):
 
 
 def main():
-    pathrows = [(99, 63), (81, 71), (100, 65), (81, 75), (75, 66)]
+    pathrows = [
+        (99, 63),
+        (81, 71),
+        (100, 65),
+        (81, 75),
+        (75, 66),
+        (99, 66),
+        (94, 64),
+        (93, 63),
+        (75, 72),
+        (74, 72),
+        (100, 51),
+        (68, 70),
+        (51, 71),
+        (48, 67),
+        (61, 59),
+    ]
     items = sample_catalog(pathrows=pathrows, query={"eo:cloud_cover": {"lt": 40}})
     for item in items:
         print(item)
