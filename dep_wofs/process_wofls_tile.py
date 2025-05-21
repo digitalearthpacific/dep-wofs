@@ -8,14 +8,14 @@ import boto3
 from distributed import Client
 from odc.stac import configure_s3_access
 import odc.stac
-from pystac import ItemCollection, read_dict
+from pystac import ItemCollection
 import pystac_client
 from typer import Option, run
 
 from cloud_logger import CsvLogger
 from dep_tools.aws import object_exists, s3_dump
 from dep_tools.exceptions import EmptyCollectionError
-from dep_tools.loaders import StacLoader
+from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
 from dep_tools.searchers import LandsatPystacSearcher, Searcher
@@ -24,26 +24,8 @@ from dep_tools.task import AwsStacTask
 
 from config import BUCKET, OUTPUT_COLLECTION_ROOT
 from grid import ls_grid
-from processors import WoflProcessor
-
-
-def use_alternate_s3_href(modifiable: pystac_client.Modifiable) -> None:
-    if isinstance(modifiable, dict):
-        if modifiable["type"] == "FeatureCollection":
-            new_features = list()
-            for item_dict in modifiable["features"]:
-                use_alternate_s3_href(item_dict)
-                new_features.append(item_dict)
-            modifiable["features"] = new_features
-        else:
-            stac_object = read_dict(modifiable)
-            use_alternate_s3_href(stac_object)
-            modifiable.update(stac_object.to_dict())
-    else:
-        for _, asset in modifiable.assets.items():
-            asset_dict = asset.to_dict()
-            if "alternate" in asset_dict.keys():
-                asset.href = asset.to_dict()["alternate"]["s3"]["href"]
+from processors import DepWOfSClassifier
+from utils import use_alternate_s3_href
 
 
 class MultiItemTask:
@@ -142,20 +124,6 @@ class DailyItemPath(S3ItemPath):
         return f"{self.item_prefix}_{self._format_item_id(item_id, join_str='_')}_{self.time:%Y-%m-%d}"
 
 
-class PassThroughOdcLoader(StacLoader):
-    """Just loads the items"""
-
-    def __init__(self, **kwargs):
-        self._kwargs = kwargs
-
-    def load(self, items, _):
-        return odc.stac.load(
-            items,
-            anchor="center",
-            **self._kwargs,
-        )
-
-
 def main(
     path: Annotated[str, Option(parser=int)],
     row: Annotated[str, Option(parser=int)],
@@ -207,7 +175,7 @@ def main(
         return None
 
     SR_BANDS = ["blue", "green", "red", "nir08", "swir16", "swir22"]
-    stacloader = PassThroughOdcLoader(
+    stacloader = OdcLoader(
         dtype="uint16",
         bands=SR_BANDS + ["qa_pixel"],
         chunks=dict(band=1, time=1, x=4096, y=4096),
@@ -218,7 +186,7 @@ def main(
         },
     )
 
-    processor = WoflProcessor()
+    processor = DepWOfSClassifier()
     post_processor = DailyPostProcessor(
         convert_to_int16=False,
         output_nodata=1,

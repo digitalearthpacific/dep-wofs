@@ -9,19 +9,7 @@ from dep_tools.namers import S3ItemPath
 
 import grid as wofs_grid
 from config import BUCKET
-
-
-def parse_datetime(datetime):
-    years = datetime.split("_")
-    if len(years) == 2:
-        years = range(int(years[0]), int(years[1]) + 1)
-    elif len(years) > 2:
-        ValueError(f"{datetime} is not a valid value for --datetime")
-    return years
-
-
-def bool_parser(raw: str):
-    return False if raw == "False" else True
+from utils import bool_parser, parse_datetime
 
 
 def main(

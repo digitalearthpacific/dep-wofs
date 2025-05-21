@@ -39,7 +39,6 @@ def get_ocean_and_land_classes(ds, filters=[("erosion", 3)]):
 
     ocean = ~land
     filtered_ocean = mask_cleanup(ocean, filters)
-    breakpoint()
 
     land_wofl = xr.Dataset({name + "_land": (ds[name] & filtered_land) for name in ds})
     ocean_wofl = xr.Dataset(

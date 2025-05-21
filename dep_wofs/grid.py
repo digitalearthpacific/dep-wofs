@@ -22,7 +22,7 @@ grid = pd.DataFrame(
 
 
 # Used for wofls, i.e. daily products
-ls_grid_path = Path("data/ls_grid.gpkg")
+ls_grid_path = Path(__file__).parent / "../data/ls_grid.gpkg"
 if not ls_grid_path.exists():
     landsat_pathrows = gpd.read_file(
         "https://d9-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/s3fs-public/atoms/files/WRS2_descending_0.zip"
