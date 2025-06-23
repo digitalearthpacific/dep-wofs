@@ -8,13 +8,13 @@ from typer import Option, run
 
 from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
+from dep_tools.grids import landsat_grid
 from dep_tools.namers import S3ItemPath
+from dep_tools.stac_utils import use_alternate_s3_href
 from dep_tools.utils import search_across_180
 
 from config import BUCKET, WOFL_DATASET_ID, VERSION
-from grid import ls_grid
 from process_wofls_item import process_wofl_item
-from utils import use_alternate_s3_href
 
 
 def main(
@@ -25,7 +25,7 @@ def main(
 ) -> None:
     configure_s3_access(cloud_defaults=True, requester_pays=True)
     id = (path, row)
-    cell = ls_grid.loc[[id]]
+    cell = landsat_grid.loc[[id]]
 
     client = pystac_client.Client.open(
         "https://landsatlook.usgs.gov/stac-server",
@@ -64,12 +64,7 @@ def main(
         # Don't reraise, it just means there's no data
         return None
 
-    try:
-        paths = [process_wofl_item(item, tile_id=id) for item in items]
-    except Exception as e:
-        # Quoting string here to escape newlines
-        logger.error([id, "error", [], f'"{e}"'])
-        raise e
+    paths = [process_wofl_item(item) for item in items]
 
     logger.info([id, "complete", paths])
 

@@ -5,26 +5,24 @@ from typing import Annotated, Optional
 
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
+from dep_tools.grids import landsat_grid
 from dep_tools.namers import S3ItemPath
+from dep_tools.parsers import bool_parser, datetime_parser
 
 import grid as wofs_grid
 from config import BUCKET
-from utils import bool_parser, parse_datetime
 
 
 def main(
-    datetime: Annotated[str, typer.Option()],
+    years: Annotated[int | list[int], typer.Option(parser=datetime_parser)],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
     grid: Optional[str] = "dep",
     dataset_id: Optional[str] = "wofs_summary_annual",
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
-    save_to_file: Annotated[str, typer.Option(parser=bool_parser)] = "False",
-    file_path: Optional[str] = "/tmp/tasks.txt",
 ) -> None:
-    years = parse_datetime(datetime)
-    this_grid = wofs_grid.grid if grid == "dep" else wofs_grid.ls_grid
+    this_grid = wofs_grid.grid if grid == "dep" else landsat_grid()
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
@@ -61,10 +59,6 @@ def main(
 
     if limit is not None:
         params = params[0 : int(limit)]
-
-    if save_to_file:
-        with open(str(file_path), "w") as dst:
-            json.dump(params, dst)
 
     json.dump(params, sys.stdout)
 
