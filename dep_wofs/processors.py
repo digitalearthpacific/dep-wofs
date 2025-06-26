@@ -5,9 +5,9 @@ from odc.stats.plugins.wofs import StatsWofs, StatsWofsFullHistory
 from wofs.virtualproduct import WOfSClassifier
 from xarray import Dataset
 
+from dep_tools.grids import gadm
 from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
-from dep_wofs.grid import GADM
 
 
 def wofl(ls_c2_ds: Dataset) -> Dataset:
@@ -26,7 +26,9 @@ class WofsFullHistoryProcessor(Processor):
             geom = unary_intersection(
                 [
                     area.boundingbox.polygon,
-                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                    Geometry(
+                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
+                    ),
                 ]
             )
             output["frequency_masked"] = output.frequency.odc.mask(geom)
@@ -52,7 +54,9 @@ class WofsProcessor(Processor):
             geom = unary_intersection(
                 [
                     area.boundingbox.polygon,
-                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                    Geometry(
+                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
+                    ),
                 ]
             )
             output["frequency_masked"] = output.frequency.odc.mask(geom)

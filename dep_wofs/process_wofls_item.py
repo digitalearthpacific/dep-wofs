@@ -17,9 +17,9 @@ from config import BUCKET, WOFL_DATASET_ID, VERSION
 from processors import DepWOfSClassifier
 
 
-def process_wofl_item(item: Item, version=VERSION):
+def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
     itempath = DailyItemPath(
-        bucket=BUCKET,
+        bucket=bucket,
         sensor="ls",
         dataset_id=WOFL_DATASET_ID,
         version=version,
@@ -28,7 +28,7 @@ def process_wofl_item(item: Item, version=VERSION):
     tile_id = (
         f"{item.properties['landsat:wrs_path']}{item.properties['landsat:wrs_row']}"
     )
-    if not object_exists(bucket=BUCKET, key=itempath.stac_path(tile_id)):
+    if not object_exists(bucket=bucket, key=itempath.stac_path(tile_id)):
         try:
             loader = OdcLoader(
                 dtype="uint16",
@@ -43,14 +43,16 @@ def process_wofl_item(item: Item, version=VERSION):
             )
             return ItemStacTask(
                 id=tile_id,
+                item=item,
                 loader=loader,
                 processor=DepWOfSClassifier(),
                 writer=AwsDsCogWriter(itempath),
                 stac_creator=StacCreator(itempath),
                 stac_writer=AwsStacWriter(itempath),
-            ).run(item)
+            ).run()
 
         except Exception as e:
+            raise e
             daily_log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to {daily_log_path}"
@@ -59,7 +61,7 @@ def process_wofl_item(item: Item, version=VERSION):
 
             s3_dump(
                 data=traceback.format_exc(),
-                bucket=BUCKET,
+                bucket=bucket,
                 key=str(daily_log_path),
                 client=boto3_client,
             )
