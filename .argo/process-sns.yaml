@@ -63,7 +63,7 @@ spec:
                     parameters:
                     - name: message
                   container:
-                    image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
+                    image: "ghcr.io/digitalearthpacific/dep-wofs:sns-test-1"
                     command: [python]
                     args: 
                       - dep_wofs/process_sns_message.py
