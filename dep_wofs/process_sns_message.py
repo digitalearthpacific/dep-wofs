@@ -9,6 +9,7 @@ import typer
 
 from dep_wofs.process_wofl_item import process_wofl_item
 
+
 def process_sns_message(msg: str, force: bool = False):
     message = json.loads(msg)
     if should_be_processed(message["landsat_product_id"]) or force:
