@@ -14,7 +14,7 @@ from dep_tools.stac_utils import use_alternate_s3_href
 from dep_tools.utils import search_across_180
 
 from config import BUCKET, WOFL_DATASET_ID, VERSION
-from process_wofls_item import process_wofl_item
+from process_wofl_item import process_wofl_item
 
 
 def main(

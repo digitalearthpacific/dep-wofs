@@ -12,16 +12,28 @@ from dep_tools.task import AwsDsCogWriter, ItemStacTask
 from dep_tools.writers import AwsStacWriter
 from dep_tools.stac_utils import StacCreator
 from pystac import Item
+import s3fs
+from typer import run
 
 from config import BUCKET, WOFL_DATASET_ID, VERSION
 from processors import DepWOfSClassifier
 
+def load_stac_item(stac_url):
+    fs = s3fs.S3FileSystem(anon=False, requester_pays=True)
+    with fs.open(stac_url, "r") as src:
+        stac_json = json.load(src)
+    return Item.from_dict(stac_json)
 
-def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
+def process_wofl_url(item_url: str, bucket=BUCKET, version=VERSION):
+    item = load_stac_item(item_url)
+    process_wofl_item(item, bucket, version)
+
+def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
+    if isinstance(item, str):
+        item = load_stac_item(item)
     itempath = DailyItemPath(
         bucket=bucket,
-        sensor="ls",
-        dataset_id=WOFL_DATASET_ID,
+        sensor="ls", dataset_id=WOFL_DATASET_ID,
         version=version,
         time=item.get_datetime(),
     )
@@ -65,3 +77,6 @@ def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
                 key=str(daily_log_path),
                 client=boto3_client,
             )
+
+if __name__ == "__main__":
+    run(process_wofl_url)
