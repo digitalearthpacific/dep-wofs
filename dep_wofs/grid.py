@@ -4,7 +4,6 @@ import pandas as pd
 
 from dep_tools.grids import grid
 
-# Replace this when the grid gymnastics have passed
 GADM = gpd.read_file(
     "https://dep-public-staging.s3.us-west-2.amazonaws.com/aoi/aoi.gpkg", layer="aoi"
 )
