@@ -21,13 +21,14 @@ def main(
     grid: Optional[str] = "dep",
     dataset_id: Optional[str] = "wofs_summary_annual",
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
+    filter_using_log: Annotated[str, typer.Option(parser=bool_parser)] = "True",
 ) -> None:
     this_grid = wofs_grid.grid if grid == "dep" else landsat_grid()
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
     params = list()
-    for year in years:
+    for year in datetime:
         itempath = S3ItemPath(
             bucket=BUCKET,
             sensor="ls",
@@ -44,7 +45,11 @@ def main(
             cloud_handler=S3Handler,
         )
 
-        grid_subset = filter_by_log(this_grid, logger.parse_log(), retry_errors)
+        grid_subset = (
+            filter_by_log(this_grid, logger.parse_log(), retry_errors)
+            if filter_using_log
+            else this_grid
+        )
 
         these_params = [
             {
