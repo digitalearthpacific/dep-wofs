@@ -42,7 +42,9 @@ def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
         time=item.get_datetime(),
     )
     tile_id = (
-        f"{item.properties['landsat:wrs_path']}{item.properties['landsat:wrs_row']}"
+        # "{item.properties['landsat:wrs_path']}{item.properties['landsat:wrs_row']}"
+        item.properties["landsat:wrs_path"],
+        item.properties["landsat:wrs_row"],
     )
     if not object_exists(bucket=bucket, key=itempath.stac_path(tile_id)):
         try:
@@ -68,7 +70,6 @@ def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
             ).run()
 
         except Exception as e:
-            raise e
             daily_log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to {daily_log_path}"
