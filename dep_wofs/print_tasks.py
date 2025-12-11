@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
-from dep_tools.grids import landsat_grid
+from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.parsers import bool_parser, datetime_parser
 
