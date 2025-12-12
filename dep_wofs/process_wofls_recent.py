@@ -24,7 +24,10 @@ app = Typer()
 
 @app.command()
 def list():
-    json.dump(landsat_grid().index.tolist(), sys.stdout)
+    json.dump(
+        [{"path": pr[0], "row": pr[1]} for pr in landsat_grid().index.tolist()],
+        sys.stdout,
+    )
 
 
 @app.command()
