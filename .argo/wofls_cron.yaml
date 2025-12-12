@@ -1,0 +1,134 @@
+kind: Workflow
+metadata:
+  generateName: wofls-cron-
+  namespace: argo
+spec:
+  entrypoint: loop-map-wofls
+  serviceAccountName: public-bucket-writer
+  podGC:
+    strategy: OnPodSuccess
+    deleteDelayDuration: 600s
+  parallelism: 100
+  activeDeadlineSeconds: 36000 
+  tolerations:
+  - key: digitalearthpacific.org/node-purpose
+    operator: Equal
+    value: argo
+    effect: NoSchedule
+  nodeSelector:
+    karpenter.sh/capacity-type: "spot"
+  arguments:
+    parameters:
+    - name: version
+      value: "test" 
+    - name: image-tag
+      value: "cron-test-3"
+  templates:
+  - name: loop-map-wofls
+    retryStrategy:
+      limit: "0"
+      retryPolicy: "Always"
+    dag:
+      tasks:
+        - name: generate-ids
+          template: generate
+        - name: process-id
+          depends: generate-ids.Succeeded
+          template: process-wofl-tile
+          arguments:
+            parameters:
+            - name: path
+              value: "{{item.path}}"
+            - name: row
+              value: "{{item.row}}"
+            - name: number-of-days
+              value: 10
+            - name: version
+              value: "{{ workflow.parameters.version }}"
+          withParam: "{{ tasks.generate-ids.outputs.result }}"
+        - name: index-results
+          depends: process-id.Succeeded 
+          templateRef:
+            name: stac-items-ingest
+            template: stac-items
+          arguments:
+            parameters:
+              - name: bucket
+                value: "dep-public-staging"
+              - name: prefix
+                value: "dep_ls_wofl/test"
+        - name: ows-index
+          depends: index-results.Succeeded 
+          templateRef:
+            name: datacube-stac-indexer
+            template: stac-indexing
+          arguments:
+            parameters:
+              - name: collections
+                value: "dep_ls_wofl"
+              # Set this to the range of dates over which the cron job could
+              # possibly ever run
+              - name: datetime
+                value: "2025/2030"
+              - name: arguments
+                value: ""
+              - name: bbox
+                value: "-180.0,-70,180.0,70"
+              - name: catalog
+                value: "https://stac.staging.digitalearthpacific.io/"
+        - name: ows-update
+          depends: ows-index.Succeeded
+          templateRef:
+            name: datacube-ows-update
+            template: ows-update
+          arguments:
+            parameters:
+              - name: products
+                value: "dep_ls_wofl"
+  - name: generate
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          memory: 100Mi
+          cpu: 1.0
+      command: [ python ]
+      args:
+        - dep_wofs/process_wofls_recent.py
+        - list
+      env:
+        - name: WOFS_BUCKET
+          value: "dep-public-staging"
+  - name: process-wofl-tile
+    inputs:
+      parameters:
+      - name: path
+      - name: row
+      - name: number-of-days
+      - name: version
+    container:
+      image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
+      imagePullPolicy: IfNotPresent
+      resources:
+        requests: 
+          memory: 4Gi
+          cpu: 2.0
+        limits:
+          cpu: 6.0
+          memory: 32Gi
+      command: [ python ]
+      args:
+        - dep_wofs/process_wofls_recent.py
+        - process-tile
+        - --path
+        - "{{ inputs.parameters.path }}"
+        - --row
+        - "{{ inputs.parameters.row }}"
+        - --number-of-days
+        - "{{ inputs.parameters.number-of-days }}"
+        - --version
+        - "{{ inputs.parameters.version }}"
+      env:
+        - name: WOFS_BUCKET
+          value: "dep-public-staging"

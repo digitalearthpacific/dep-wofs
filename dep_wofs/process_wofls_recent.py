@@ -24,6 +24,7 @@ app = Typer()
 
 @app.command()
 def list():
+    """List all Landsat tiles."""
     json.dump(
         [{"path": pr[0], "row": pr[1]} for pr in landsat_grid().index.tolist()],
         sys.stdout,

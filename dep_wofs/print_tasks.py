@@ -14,7 +14,7 @@ from config import BUCKET
 
 
 def main(
-    years: Annotated[int | list[int], typer.Option(parser=datetime_parser)],
+    years: Annotated[list[int], typer.Option(parser=datetime_parser)],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
@@ -28,7 +28,7 @@ def main(
     second_name = dict(dep="row", ls="row")
 
     params = list()
-    for year in datetime:
+    for year in years:
         itempath = S3ItemPath(
             bucket=BUCKET,
             sensor="ls",
