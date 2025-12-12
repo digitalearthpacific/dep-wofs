@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta, timezone
+import json
+import sys
 from typing_extensions import Annotated
 import warnings
 
 from distributed import Client
 from odc.stac import configure_s3_access
 import pystac_client
-from typer import Option, run
+from typer import Option, Typer
 
 from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
@@ -17,8 +19,16 @@ from dep_tools.utils import search_across_180
 from config import BUCKET, WOFL_DATASET_ID, VERSION
 from process_wofl_item import process_wofl_item
 
+app = Typer()
 
-def main(
+
+@app.command()
+def list():
+    json.dump(landsat_grid().index.tolist(), sys.stdout)
+
+
+@app.command()
+def process_tile(
     path: Annotated[str, Option(parser=int)],
     row: Annotated[str, Option(parser=int)],
     number_of_days: Annotated[int, Option(parser=int)],
@@ -77,4 +87,4 @@ def main(
 
 if __name__ == "__main__":
     with Client():
-        run(main)
+        app()
