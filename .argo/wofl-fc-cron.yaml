@@ -33,9 +33,9 @@ spec:
       - name: fc-version
         value: "0-1-0"
       - name: wofl-image-tag
-        value: "cron-test-3"
+        value: "0.2.1"
       - name: fc-image-tag
-        value: "cron-test-1"
+        value: "0.1.2"
       - name: number-of-days
         value: 5
     templates:
