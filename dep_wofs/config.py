@@ -5,4 +5,4 @@ WOFL_DATASET_ID = "wofl"
 OUTPUT_COLLECTION_ROOT = os.environ.get(
     "OUTPUT_COLLECTION_ROOT", "https://stac.digitalearthpacific.org"
 )
-VERSION = "test"
+VERSION = "0.2.0"
