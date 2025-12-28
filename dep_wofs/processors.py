@@ -5,33 +5,17 @@ from odc.stats.plugins.wofs import StatsWofs, StatsWofsFullHistory
 from wofs.virtualproduct import WOfSClassifier
 from xarray import Dataset
 
+from dep_tools.grids import gadm
 from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
-from dep_wofs.grid import GADM
 
 
 def wofl(ls_c2_ds: Dataset) -> Dataset:
-    return WoflProcessor().process(ls_c2_ds)
+    return DepWOfSClassifier().compute(ls_c2_ds)
 
 
 def wofs(wofls: Dataset, mask=None) -> Dataset:
     return WofsProcessor().process(wofls, mask)
-
-
-class WoflProcessor(Processor):
-    """A tiny wrapper around `DepWOfSClassifier.compute` which allows conformance
-    to the DEP scaling abstractions in dep-tools.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Init this separately to accommodate dsm caching
-        self.classifier = DepWOfSClassifier()
-
-    def process(self, ls_c2_ds):
-        output = self.classifier.compute(ls_c2_ds)
-        output.water.attrs["nodata"] = 1
-        return output
 
 
 class WofsFullHistoryProcessor(Processor):
@@ -39,11 +23,12 @@ class WofsFullHistoryProcessor(Processor):
         summarizer = StatsWofsFullHistory()
         output = summarizer.reduce(wofs_annuals)
         if area is not None:
-
             geom = unary_intersection(
                 [
                     area.boundingbox.polygon,
-                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                    Geometry(
+                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
+                    ),
                 ]
             )
             output["frequency_masked"] = output.frequency.odc.mask(geom)
@@ -66,18 +51,19 @@ class WofsProcessor(Processor):
         )
         output = summarizer.reduce(prepped)
         if area is not None:
-
             geom = unary_intersection(
                 [
                     area.boundingbox.polygon,
-                    Geometry(GADM.to_crs(area.crs).geometry.unary_union, crs=area.crs),
+                    Geometry(
+                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
+                    ),
                 ]
             )
             output["frequency_masked"] = output.frequency.odc.mask(geom)
         return output
 
 
-class DepWOfSClassifier(WOfSClassifier):
+class DepWOfSClassifier(WOfSClassifier, Processor):
     """A wrapper around wofs.virtualproduct.WOfSClassifier. Allows the use of
     input data with band names "blue", "green", "red", "nir08", "swir16",
     "swir22" and "qa_pixel", rather than "nbart_blue", "nbart_green",
@@ -103,7 +89,12 @@ class DepWOfSClassifier(WOfSClassifier):
                 "qa_pixel": "fmask",
             }
         ).assign_attrs(crs=data.rio.crs)
-        return super().compute(data)
+        output = super().compute(data)
+        output.water.attrs["nodata"] = 1
+        return output
+
+    def process(self, input_data):
+        return self.compute(input_data)
 
     def _load_dsm(self, gbox):
         # This comes in as a datacube.utils.geometry._base.GeoBox, which fails

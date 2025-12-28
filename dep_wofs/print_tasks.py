@@ -5,15 +5,16 @@ from typing import Annotated, Optional
 
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
+from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
-from dep_tools.parsers import datetime_parser, bool_parser
+from dep_tools.parsers import bool_parser, datetime_parser
 
 import grid as wofs_grid
 from config import BUCKET
 
 
 def main(
-    datetime: Annotated[str, typer.Option(parser=datetime_parser)],
+    years: Annotated[list[int], typer.Option(parser=datetime_parser)],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
@@ -22,12 +23,12 @@ def main(
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     filter_using_log: Annotated[str, typer.Option(parser=bool_parser)] = "True",
 ) -> None:
-    this_grid = wofs_grid.grid if grid == "dep" else wofs_grid.ls_grid
+    this_grid = wofs_grid.grid if grid == "dep" else landsat_grid()
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
     params = list()
-    for year in datetime:
+    for year in years:
         itempath = S3ItemPath(
             bucket=BUCKET,
             sensor="ls",
