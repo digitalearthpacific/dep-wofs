@@ -17,22 +17,54 @@ WOFL) as well as annual and all-time summaries.
 
 ## Project Structure
 
-### `dep_wofs/`
+### [dep_wofs/](dep_wofs/)
 
-The `dep_wofs/` subfolder contains code to run the processing.
+The [dep_wofs/](dep_wofs/) subfolder contains code to run the processing.
+
+The most relevant files are:
+
+- [process_wofl_item.py](dep_wofs/process_wofl_item.py)
+  Use to create WOFL for a single Landsat STAC item.
+
+- [process_wofls_annual.py](dep_wofs/process_wofls_annual.py)
+  Use to create WOFLs for all Landsat scenes in a particular pathrow
+  for an entire year.
+
+- [process_wofls_recent.py](dep_wofs/process_wofls_recent.py)
+  Use to create WOFLs for recent Landsat scenes in a particular pathrow.
+
+- [process_wofs_full_history_tile.py](dep_wofs/process_wofs_full_history_tile.py)
+  Use to create WOFS summaries across all WOFL scenes in a particular pathrow
+  across all years.
+
+- [process_wofs_tile.py](dep_wofs/process_wofs_tile.py)
+  Use to create annual WOFS summaries for a particular pathrow.
 
 ### `data/`
 
-The data folder contains data necessary for processing
+The data folder contains data necessary for processing.
 
 ### `validation/`
 
-This folder contains independent validation data and code
+This folder contains independent validation data and code.
 
 ### `.argo/`
 
 Processing at scale was accomplished using [Argo workflows](https://argoproj.github.io/).
 This folder contains workflows used to produce all data outputs.
+
+- [wofls.yaml](.argo/wofls.yaml)
+  For creating WOFL (scene-level) data.
+
+- [wofs.yaml](.argo/wofs.yaml)
+  For creating WOFS annual summaries.
+
+- [wofs_full_history.yml](.argo/wofs_full_history.yml)
+  For creating all-time WOFS summaries.
+
+- [wofl-fc-cron-yaml](.argo/wofl-fc-cron.yaml)
+  Cron-based workflow to process and index recent Landsat scenes, creating
+  WOFL _and_ fractional cover.
 
 ## Installation
 
@@ -46,3 +78,28 @@ pip install git+https://github.com/digitalearthpacific/dep-wofs.git
 ```
 
 ## Usage
+
+You could create WOFL data for a single Landsat scene doing something like this
+
+```python
+import odc.stac
+import pystac
+import rioxarray
+from dep_wofs.processors import wofl
+
+odc.stac.configure_s3_access(requester_pays=True, cloud_defaults=True)
+
+item = pystac.Item.from_file("https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_L2SR_081072_20251208_02_T1")
+landsat_ds = odc.stac.load([item])
+wofl_for_scene = wofl(landsat_ds)
+```
+
+WOFS summaries could be created for data produced using `wofl` at multiple times:
+
+```python
+from dep_wofs.processors import wofs
+
+# ... first produce WOFL for multiple times in the same place
+
+wofs = wofs(wofls_for_scenes)
+```
