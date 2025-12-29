@@ -19,7 +19,7 @@ WOFL) as well as annual and all-time summaries.
 
 ### [dep_wofs/](dep_wofs/)
 
-The [dep_wofs/](dep_wofs/) subfolder contains code to run the processing.
+The subfolder contains code to process individual tiles.
 
 The most relevant files are:
 
@@ -40,15 +40,15 @@ The most relevant files are:
 - [process_wofs_tile.py](dep_wofs/process_wofs_tile.py)
   Use to create annual WOFS summaries for a particular pathrow.
 
-### `data/`
+### [data/](data/)
 
 The data folder contains data necessary for processing.
 
-### `validation/`
+### [validation/](validation/)
 
 This folder contains independent validation data and code.
 
-### `.argo/`
+### [.argo/](.argo/)
 
 Processing at scale was accomplished using [Argo workflows](https://argoproj.github.io/).
 This folder contains workflows used to produce all data outputs.
