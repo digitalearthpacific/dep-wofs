@@ -11,10 +11,32 @@ from dep_tools.searchers import PystacSearcher
 
 
 def wofl(ls_c2_ds: Dataset) -> Dataset:
+    """Produce WOFL data for a single landsat collection-2 level-2 scene.
+
+    Args:
+        ls_c2_ds:  An :class:`xarray.Dataset` containing landsat data, with
+        variables "blue", "green", "red", "nir08", "swir16", "swir22" and
+        "qa_pixel" corresponding to the associated landsat bands.
+
+    Returns:
+        WOFL.
+
+    """
     return DepWOfSClassifier().compute(ls_c2_ds)
 
 
 def wofs(wofls: Dataset, mask=None) -> Dataset:
+    """Produce WOfS summary data from WOFL data.
+
+    Args:
+        wofls: A time series of WOFL data, indexed by a "time" coordinate.
+        mask: An optional data mask. If supplied, a `frequency_masked`
+            output band is included.
+
+    Returns: A Dataset with "count_wet", "count_clear" and "frequency"
+        variables. If a mask is provided, creates an additional "frequency_masked"
+        band.
+    """
     return WofsProcessor().process(wofls, mask)
 
 
