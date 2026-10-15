@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# GitHub
+.github
+
+# Python
+__pycache__
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv
+venv/
+
+# Local data
+data/
