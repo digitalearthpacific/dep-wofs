@@ -2,7 +2,6 @@ import pandas as pd
 
 from dep_tools.grids import grid, gadm
 
-
 # This needs to be addressed. The intersection code for the gridspec is just
 # too slow because it needs to do the buffer. So either fix that, or cache
 # this grid like coastlines

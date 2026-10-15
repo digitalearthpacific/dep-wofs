@@ -21,24 +21,25 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Check formatting
-        uses: rickstaa/action-black@v1
-        id: action_black
-        with:
-          black_args: "--check dep_wofs"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+      # --locked fails if uv.lock is out of date with pyproject.toml
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Check formatting
+        run: uv run black --check dep_wofs
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
@@ -57,18 +58,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
         
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -81,7 +79,7 @@ jobs:
           echo "VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
 
       - name: Build and push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
