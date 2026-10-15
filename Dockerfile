@@ -11,6 +11,3 @@ RUN uv sync --frozen --no-dev
 
 # Argo calls `python dep_wofs/...`, so the project venv must come first
 ENV PATH="/code/.venv/bin:$PATH"
-
-# Don't use old pygeos
-ENV USE_PYGEOS=0
