@@ -68,10 +68,14 @@ This folder contains workflows used to produce all data outputs.
 
 ## Installation
 
-This project requires a separate installation of GDAL (version 3.8.x;
-3.8.4 was used for this project).
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). To set up a
+local environment:
 
-The code can be installed using pip, e.g.
+```
+uv sync
+```
+
+The code can also be installed with pip, e.g.
 
 ```
 pip install git+https://github.com/digitalearthpacific/dep-wofs.git
