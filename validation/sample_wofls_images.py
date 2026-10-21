@@ -1,7 +1,6 @@
 from pathlib import Path
 from random import sample, seed
 import warnings
-import xml.etree.ElementTree as ET
 
 from geocube.api.core import make_geocube
 import geopandas as gpd
@@ -9,7 +8,6 @@ import numpy as np
 from odc.algo import mask_cleanup
 import odc.stac
 from odc.stats.plugins.wofs import StatsWofs
-from osgeo.gdal import BuildVRT
 import pandas as pd
 from pystac_client import Client
 from retry import retry
@@ -17,18 +15,20 @@ import rioxarray
 from shapely.geometry import Point
 import xarray as xr
 
-from dep_wofs.grid import ls_grid, GADM
-from dep_wofs.utils import use_alternate_s3_href
+from dep_tools.grids import gadm
+from dep_tools.landsat_utils import landsat_grid
+from dep_tools.stac_utils import use_alternate_s3_href
 
 DEP_CLIENT = Client.open("https://stac.digitalearthpacific.org")
 OUTPUT_DIR = Path(__file__).parent / "../data/validation"
+LS_GRID = landsat_grid()
 
 
 def get_ocean_and_land_classes(ds, filters=[("erosion", 3)]):
-    GADM["land"] = 1
+    gadm_land = gadm().assign(land=1)
     land = (
         make_geocube(
-            GADM.to_crs(ds.rio.crs),
+            gadm_land.to_crs(ds.rio.crs),
             like=next(iter(ds.data_vars.values())),
             fill=0,
         )
@@ -56,7 +56,7 @@ def sample_catalog(pathrows, query=dict(), n_each=3):
 def sample_tile(path, row, query=dict(), n=1):
     """For the given path and row and other query parameters, return n randomly
     selected STAC Items."""
-    tile_bbox = ls_grid.loc[(path, row)].geometry.bounds
+    tile_bbox = LS_GRID.loc[(path, row)].geometry.bounds
     query = {
         "landsat:wrs_row": dict(eq=str(row).zfill(3)),
         "landsat:wrs_path": dict(eq=str(path).zfill(3)),
@@ -189,32 +189,32 @@ def create_rgb_mosaic(item):
         query={"landsat:scene_id": {"eq": scene_id}},
     ).items()
     tif_file = OUTPUT_DIR / f"{scene_id}_rgb.tif"
-    vrt_file = OUTPUT_DIR / f"{scene_id}_rgb.vrt"
-    # load item and write 3-band tiff
+
+    # Load item and write a stretched 3-band, 8-bit tiff for viewing
+    if not tif_file.exists():
+        # Otherwise bands load as float with NaN for no data
+        rgb = odc.stac.load(
+            ls_item,
+            chunks=dict(x=2048, y=2048),
+            bands=["red", "green", "blue"],
+            dtype="uint16",
+            nodata=0,
+        ).squeeze()
+        rgb.map(stretch_to_uint8).rio.to_raster(tif_file, driver="COG", overwrite=True)
 
 
-#    if not tif_file.exists():
-#        odc.stac.load(
-#            ls_item, chunks=dict(x=2048, y=2048), bands=["red", "green", "blue"]
-#        ).squeeze().rio.to_raster(tif_file, driver="COG", overwrite=True)
-#
-# Create a VRT with standard stretch that seems to look decent in most
-# situations.
-# srcNodata ensures sources are complex sources
-#    if not vrt_file.exists():
-#        BuildVRT(vrt_file, tif_file, srcNodata=0)
-#        set_vrt_min_max(vrt_file)
-
-
-def set_vrt_min_max(vrt_path):
-    """Set the 'LUT' element of each complex source band in the given path
-    to sensible values for a Landsat RGB mosaic."""
-    tree = ET.parse(vrt_path)
-    root = tree.getroot()
-    for source in root.findall(".//ComplexSource"):
-        lut = ET.SubElement(source, "LUT")
-        lut.text = "1:1,7000:2,14000:230,65535:255"
-    tree.write(vrt_path)
+def stretch_to_uint8(band):
+    """Stretch a Landsat surface reflectance band to 0-255 using breakpoints
+    that look decent in most situations. 0 (no data) stays 0."""
+    # Same breakpoints as the GDAL VRT lookup table this replaces
+    stretched = xr.apply_ufunc(
+        np.interp,
+        band,
+        kwargs=dict(xp=[1, 7000, 14000, 65535], fp=[1, 2, 230, 255]),
+        dask="parallelized",
+        output_dtypes=[float],
+    )
+    return stretched.where(band != 0, 0).astype("uint8").rio.write_nodata(0)
 
 
 def main():
