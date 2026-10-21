@@ -22,13 +22,13 @@ from dep_tools.stac_utils import use_alternate_s3_href
 DEP_CLIENT = Client.open("https://stac.digitalearthpacific.org")
 OUTPUT_DIR = Path(__file__).parent / "../data/validation"
 LS_GRID = landsat_grid()
+GADM_LAND = gadm().assign(land=1)
 
 
 def get_ocean_and_land_classes(ds, filters=[("erosion", 3)]):
-    gadm_land = gadm().assign(land=1)
     land = (
         make_geocube(
-            gadm_land.to_crs(ds.rio.crs),
+            GADM_LAND.to_crs(ds.rio.crs),
             like=next(iter(ds.data_vars.values())),
             fill=0,
         )
@@ -174,7 +174,7 @@ def min_distance_to_series(point, point_series):
 
 @retry(tries=3)
 def create_rgb_mosaic(item):
-    """Create a 3-band rgb mosaic and corresponding vrt for the Landsat item
+    """Create a stretched 3-band, 8-bit rgb mosaic for the Landsat item
     identified by the metadata (specifically item.properties["landsat:scene_id"])
     of the given STAC item.
     """
