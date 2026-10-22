@@ -14,7 +14,7 @@ from config import BUCKET
 
 
 def main(
-    years: Annotated[list[int], typer.Option(parser=datetime_parser)],
+    years: Annotated[str, typer.Option(parser=datetime_parser)],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
