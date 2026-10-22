@@ -1,15 +1,16 @@
 import json
 import sys
 from itertools import product
-from typing import Annotated, Optional
+from typing import Annotated, Optional, cast
 
+from geopandas import GeoDataFrame
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
+from dep_tools.grids import gadm, grid as dep_grid
 from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.parsers import bool_parser, datetime_parser
 
-import grid as wofs_grid
 from config import BUCKET
 
 
@@ -23,7 +24,7 @@ def main(
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     filter_using_log: Annotated[str, typer.Option(parser=bool_parser)] = "True",
 ) -> None:
-    this_grid = wofs_grid.grid if grid == "dep" else landsat_grid()
+    this_grid = dep_land_tiles() if grid == "dep" else landsat_grid()
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
@@ -66,6 +67,15 @@ def main(
         params = params[0 : int(limit)]
 
     json.dump(params, sys.stdout)
+
+
+def dep_land_tiles():
+    """DEP grid tiles that touch land, one row per tile."""
+    tiles = cast(
+        GeoDataFrame, dep_grid(intersect_with=gadm(), return_type="GeoDataFrame")
+    )
+    # Tiles touching more than one GADM feature appear once per feature
+    return tiles.loc[~tiles.index.duplicated()]
 
 
 if __name__ == "__main__":
