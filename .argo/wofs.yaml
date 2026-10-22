@@ -42,7 +42,7 @@ spec:
             parameters:
               - name: limit
                 value: "9999"
-              - name: datetime
+              - name: years
                 value: "1984_1994" 
               - name: version
                 value: "{{ workflow.parameters.version }}"
@@ -70,7 +70,7 @@ spec:
     inputs:
       parameters:
       - name: limit
-      - name: datetime
+      - name: years
       - name: version
       - name: dataset-id
     container:
@@ -83,8 +83,8 @@ spec:
       command: [ python ]
       args:
         - dep_wofs/print_tasks.py
-        - --datetime
-        - "{{ inputs.parameters.datetime }}"
+        - --years
+        - "{{ inputs.parameters.years }}"
         - --version
         - "{{ inputs.parameters.version }}"
         - --limit
