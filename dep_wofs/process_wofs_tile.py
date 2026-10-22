@@ -17,10 +17,6 @@ from grid import grid
 from processors import WofsProcessor
 
 
-def bool_parser(raw: str):
-    return False if raw == "False" else True
-
-
 def main(
     row: Annotated[str, Option(parser=int)],
     column: Annotated[str, Option(parser=int)],
