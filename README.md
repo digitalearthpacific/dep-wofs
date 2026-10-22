@@ -40,10 +40,6 @@ The most relevant files are:
 - [process_wofs_tile.py](dep_wofs/process_wofs_tile.py)
   Use to create annual WOFS summaries for a particular pathrow.
 
-### [data/](data/)
-
-The data folder contains data necessary for processing.
-
 ### [validation/](validation/)
 
 This folder contains independent validation data and code.
