@@ -1,3 +1,8 @@
+"""Make WOfLs for recent Landsat scenes.
+
+Used by the daily cron workflow (.argo/wofl-fc-cron.yaml).
+"""
+
 from datetime import datetime, timedelta, timezone
 import json
 import sys
@@ -38,6 +43,17 @@ def process_tile(
     number_of_days: Annotated[int, Option(parser=int)],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
+    """Make WOfLs for the scenes of a Landsat path/row from the last few days.
+
+    Scenes that already have a WOfL are skipped. The result is added to a log on
+    S3 named after the time range searched.
+
+    Args:
+        path: The Landsat path.
+        row: The Landsat row.
+        number_of_days: How many days back from now to search for scenes.
+        version: The output version.
+    """
     configure_s3_access(cloud_defaults=True, requester_pays=True)
     id = (path, row)
     cell = landsat_grid().loc[[id]]

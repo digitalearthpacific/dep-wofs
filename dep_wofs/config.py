@@ -1,3 +1,9 @@
+"""Settings shared by the processing scripts.
+
+The output bucket and STAC root can be set with the WOFS_BUCKET and
+OUTPUT_COLLECTION_ROOT environment variables.
+"""
+
 import os
 
 BUCKET = os.environ.get("WOFS_BUCKET", "dep-public-data")

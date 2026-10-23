@@ -24,7 +24,10 @@ The subfolder contains code to process individual tiles.
 The most relevant files are:
 
 - [process_wofl_item.py](dep_wofs/process_wofl_item.py)
-  Use to create WOFL for a single Landsat STAC item.
+  Creates the WOFL for a single Landsat STAC item. `process_wofls_annual.py`
+  and `process_wofls_recent.py` call its `process_wofl_item` function, which
+  can also be imported and called directly with a STAC item (from within
+  `dep_wofs/`).
 
 - [process_wofls_annual.py](dep_wofs/process_wofls_annual.py)
   Use to create WOFLs for all Landsat scenes in a particular pathrow

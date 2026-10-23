@@ -1,3 +1,9 @@
+"""Make WOfLs for every Landsat scene of one path/row in a given period.
+
+Used by .argo/wofls.yaml to make WOfLs for given years, one path/row and year per
+job.
+"""
+
 from typing_extensions import Annotated
 import warnings
 
@@ -23,6 +29,17 @@ def main(
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
+    """Make WOfLs for all scenes of a Landsat path/row in the given period.
+
+    Scenes that already have a WOfL are skipped. The result is added to the
+    time period's log on S3.
+
+    Args:
+        path: The Landsat path.
+        row: The Landsat row.
+        datetime: The period to search, e.g. ``"2016"``.
+        version: The output version.
+    """
     configure_s3_access(cloud_defaults=True, requester_pays=True)
     id = (path, row)
     cell = landsat_grid().loc[[id]]

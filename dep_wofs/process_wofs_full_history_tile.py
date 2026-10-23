@@ -1,3 +1,8 @@
+"""Make the all-time WOfS summary for one DEP grid tile.
+
+Used by .argo/wofs_full_history.yml.
+"""
+
 from typing import cast
 from typing_extensions import Annotated
 
@@ -26,6 +31,18 @@ def main(
     version: Annotated[str, Option()],
     dataset_id: str = "wofs_summary_alltime",
 ) -> None:
+    """Summarise annual WOfS summaries over a period for one DEP grid tile.
+
+    The summary is written to S3 with a STAC item, and the result is added to the
+    period's log.
+
+    Args:
+        row: The DEP grid row.
+        column: The DEP grid column.
+        datetime: The period to summarise, e.g. ``"1984/2023"``.
+        version: The output version.
+        dataset_id: The output dataset name.
+    """
     boto3.setup_default_session()
     id = (column, row)
     cell = cast(GridSpec, PACIFIC_GRID_30).tile_geobox(id)
@@ -51,7 +68,7 @@ def main(
         fail_on_error=False,
     )
 
-    processor = WofsFullHistoryProcessor(send_area_to_processor=True)
+    processor = WofsFullHistoryProcessor()
     post_processor = XrPostProcessor(
         convert_to_int16=False,
         extra_attrs=dict(dep_version=version),
