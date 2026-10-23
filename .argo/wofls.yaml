@@ -107,7 +107,7 @@ spec:
           memory: 15Gi
       command: [ python ]
       args:
-        - dep_wofs/process_wofls_tile.py
+        - dep_wofs/process_wofls_annual.py
         - --path
         - "{{ inputs.parameters.path }}"
         - --row

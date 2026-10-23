@@ -1,10 +1,18 @@
+"""Make the all-time WOfS summary for one DEP grid tile.
+
+Used by .argo/wofs_full_history.yml.
+"""
+
+from typing import cast
 from typing_extensions import Annotated
 
 import boto3
 from distributed import Client
+from odc.geo.gridspec import GridSpec
 from typer import Option, run
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_tools.grids import PACIFIC_GRID_30
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
 from dep_tools.processors import XrPostProcessor
@@ -13,20 +21,31 @@ from dep_tools.stac_utils import StacCreator
 from dep_tools.task import AwsStacTask as Task
 
 from config import BUCKET, OUTPUT_COLLECTION_ROOT
-from grid import grid
 from processors import WofsFullHistoryProcessor
 
 
 def main(
-    row: Annotated[str, Option(parser=int)],
-    column: Annotated[str, Option(parser=int)],
+    row: Annotated[int, Option(parser=int)],
+    column: Annotated[int, Option(parser=int)],
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()],
     dataset_id: str = "wofs_summary_alltime",
 ) -> None:
+    """Summarise annual WOfS summaries over a period for one DEP grid tile.
+
+    The summary is written to S3 with a STAC item, and the result is added to the
+    period's log.
+
+    Args:
+        row: The DEP grid row.
+        column: The DEP grid column.
+        datetime: The period to summarise, e.g. ``"1984/2023"``.
+        version: The output version.
+        dataset_id: The output dataset name.
+    """
     boto3.setup_default_session()
     id = (column, row)
-    cell = grid.loc[id].geobox.tolist()[0]
+    cell = cast(GridSpec, PACIFIC_GRID_30).tile_geobox(id)
 
     itempath = S3ItemPath(
         bucket=BUCKET,
@@ -49,7 +68,7 @@ def main(
         fail_on_error=False,
     )
 
-    processor = WofsFullHistoryProcessor(send_area_to_processor=True)
+    processor = WofsFullHistoryProcessor()
     post_processor = XrPostProcessor(
         convert_to_int16=False,
         extra_attrs=dict(dep_version=version),
