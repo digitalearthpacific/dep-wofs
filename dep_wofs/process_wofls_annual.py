@@ -1,3 +1,9 @@
+"""Make WOfLs for every Landsat scene of one path/row in a given period.
+
+Used by .argo/wofls.yaml to make WOfLs for given years, one path/row and year per
+job.
+"""
+
 from typing_extensions import Annotated
 import warnings
 
@@ -8,7 +14,7 @@ from typer import Option, run
 
 from cloud_logger import CsvLogger
 from dep_tools.exceptions import EmptyCollectionError
-from dep_tools.grids import landsat_grid
+from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.stac_utils import use_alternate_s3_href
 from dep_tools.utils import search_across_180
@@ -18,14 +24,25 @@ from process_wofl_item import process_wofl_item
 
 
 def main(
-    path: Annotated[str, Option(parser=int)],
-    row: Annotated[str, Option(parser=int)],
+    path: Annotated[int, Option(parser=int)],
+    row: Annotated[int, Option(parser=int)],
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:
+    """Make WOfLs for all scenes of a Landsat path/row in the given period.
+
+    Scenes that already have a WOfL are skipped. The result is added to the
+    time period's log on S3.
+
+    Args:
+        path: The Landsat path.
+        row: The Landsat row.
+        datetime: The period to search, e.g. ``"2016"``.
+        version: The output version.
+    """
     configure_s3_access(cloud_defaults=True, requester_pays=True)
     id = (path, row)
-    cell = landsat_grid.loc[[id]]
+    cell = landsat_grid().loc[[id]]
 
     client = pystac_client.Client.open(
         "https://landsatlook.usgs.gov/stac-server",
