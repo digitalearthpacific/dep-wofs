@@ -38,8 +38,8 @@ def list():
 
 @app.command()
 def process_tile(
-    path: Annotated[str, Option(parser=int)],
-    row: Annotated[str, Option(parser=int)],
+    path: Annotated[int, Option(parser=int)],
+    row: Annotated[int, Option(parser=int)],
     number_of_days: Annotated[int, Option(parser=int)],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:

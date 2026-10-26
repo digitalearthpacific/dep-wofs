@@ -24,8 +24,8 @@ from process_wofl_item import process_wofl_item
 
 
 def main(
-    path: Annotated[str, Option(parser=int)],
-    row: Annotated[str, Option(parser=int)],
+    path: Annotated[int, Option(parser=int)],
+    row: Annotated[int, Option(parser=int)],
     datetime: Annotated[str, Option()],
     version: Annotated[str, Option()] = VERSION,
 ) -> None:

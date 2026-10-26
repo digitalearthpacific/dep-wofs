@@ -7,7 +7,7 @@ from odc.stats.plugins.wofs import StatsWofs, StatsWofsFullHistory
 from wofs.virtualproduct import WOfSClassifier
 from xarray import DataArray, Dataset
 
-from dep_tools.grids import gadm
+from dep_tools.grids import gadm_union
 from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
 
@@ -57,18 +57,18 @@ class WofsFullHistoryProcessor(Processor):
         super().__init__()
         self.mask_ocean = mask_ocean
 
-    def process(self, wofs_annuals: Dataset) -> Dataset:
+    def process(self, input_data: Dataset) -> Dataset:
         """Summarise annual WOfS summaries.
 
         Args:
-            wofs_annuals: Annual summaries with ``count_clear`` and ``count_wet``
+            input_data: Annual summaries with ``count_clear`` and ``count_wet``
                 variables, indexed by a "time" coordinate.
 
         Returns:
             A Dataset with ``count_wet``, ``count_clear`` and ``frequency`` variables,
             plus ``frequency_masked`` if ``mask_ocean`` is True.
         """
-        output = StatsWofsFullHistory().reduce(wofs_annuals)
+        output = StatsWofsFullHistory().reduce(input_data)
         if self.mask_ocean:
             output["frequency_masked"] = mask_to_land(output.frequency)
         return output
@@ -90,18 +90,18 @@ class WofsProcessor(Processor):
         super().__init__()
         self.mask_ocean = mask_ocean
 
-    def process(self, wofls: Dataset) -> Dataset:
+    def process(self, input_data: Dataset) -> Dataset:
         """Summarise a time series of WOfLs.
 
         Args:
-            wofls: WOfLs indexed by a "time" coordinate.
+            input_data: WOfLs indexed by a "time" coordinate.
 
         Returns:
             A Dataset with ``count_wet``, ``count_clear`` and ``frequency`` variables,
             plus ``frequency_masked`` if ``mask_ocean`` is True.
         """
         summarizer = StatsWofs()
-        prepped = wofls.groupby("time").apply(
+        prepped = input_data.groupby("time").apply(
             lambda ds: summarizer.native_transform(ds)
         )
         output = summarizer.reduce(prepped)
@@ -207,7 +207,7 @@ def mask_to_land(data: DataArray) -> DataArray:
     land = unary_intersection(
         [
             geobox.boundingbox.polygon,
-            Geometry(gadm().to_crs(geobox.crs).geometry.unary_union, crs=geobox.crs),
+            Geometry(gadm_union().to_crs(geobox.crs).geometry.iloc[0], crs=geobox.crs),
         ]
     )
     return data.odc.mask(land)

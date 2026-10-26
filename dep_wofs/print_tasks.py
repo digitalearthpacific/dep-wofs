@@ -12,7 +12,7 @@ from typing import Annotated, Optional, cast
 from geopandas import GeoDataFrame
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
-from dep_tools.grids import gadm, grid as dep_grid
+from dep_tools.grids import gadm_union, grid as dep_grid
 from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.parsers import bool_parser, datetime_parser
@@ -93,11 +93,10 @@ def main(
 
 def dep_land_tiles() -> GeoDataFrame:
     """DEP grid tiles that touch land, one row per tile."""
-    tiles = cast(
-        GeoDataFrame, dep_grid(intersect_with=gadm(), return_type="GeoDataFrame")
+    return cast(
+        GeoDataFrame,
+        dep_grid(intersect_with=gadm_union(), return_type="GeoDataFrame"),
     )
-    # Tiles touching more than one GADM feature appear once per feature
-    return tiles.loc[~tiles.index.duplicated()]
 
 
 if __name__ == "__main__":
