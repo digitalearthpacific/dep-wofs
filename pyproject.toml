@@ -34,3 +34,7 @@ cloud-logger = { git = "https://github.com/jessjaco/cloud-logger.git" }
 dev = [
     "black>=26.10.1",
 ]
+validation = [
+    "plotnine>=0.15.8",
+    "tabulate>=0.10.0",
+]

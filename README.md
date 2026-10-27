@@ -45,7 +45,11 @@ The most relevant files are:
 
 ### [validation/](validation/)
 
-This folder contains independent validation data and code.
+This folder contains an independent accuracy assessment of WOfL, comparing
+WOfL classes to manually labelled points, along with the labelled data. WOfL
+is much less accurate over ocean than on land, which is why the summaries
+include a land-masked `frequency_masked` band. See the
+[validation README](validation/README.md) for methods and results.
 
 ### [.argo/](.argo/)
 

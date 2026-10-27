@@ -97,13 +97,12 @@ def place_random_points(item, n=25):
         )
 
         output_file = OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}.gpkg'
-
-
-#    if not output_file.exists():
-#        points.to_file(output_file)
-#        points.drop(["name"], axis=1).assign(label="").sample(frac=1).to_file(
-#            OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}_blinded.gpkg'
-#        )
+        if not output_file.exists():
+            points.to_file(output_file)
+            # Shuffled copy without class names, for unbiased manual labelling
+            points.drop(["name"], axis=1).assign(label="").sample(frac=1).to_file(
+                OUTPUT_DIR / f'{item.properties["landsat:scene_id"]}_blinded.gpkg'
+            )
 
 
 def get_classes_to_sample(wofl):
