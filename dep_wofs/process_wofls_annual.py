@@ -81,7 +81,7 @@ def main(
         # Don't reraise, it just means there's no data
         return None
 
-    paths = [process_wofl_item(item) for item in items]
+    paths = [process_wofl_item(item, version=version) for item in items]
 
     logger.info([id, "complete", paths])
 
