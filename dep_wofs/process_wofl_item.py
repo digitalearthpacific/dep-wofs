@@ -84,7 +84,7 @@ def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
 
 
 def fix_ard_bucket_hrefs(item: Item) -> None:
-    """Point asset links at the bucket where the Landsat files actually are.
+    """Change asset urls in s3://usgs-landsat-ard to s3://usgs-landsat
 
     Some Tier 2 items in the USGS STAC API give S3 links in the
     ``usgs-landsat-ard`` bucket, but the files are in ``usgs-landsat`` at the

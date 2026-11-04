@@ -7,10 +7,10 @@ OUTPUT_COLLECTION_ROOT environment variables.
 import os
 
 BUCKET = os.environ.get("WOFS_BUCKET", "dep-public-data")
-"""The output bucket."""
+"""The output bucket. Use dep-public-data for production."""
 
 VERSION = "0.2.0"
-"""The data version."""
+"""The data version. This should stay the same unless you're doing a full rerun"""
 
 WOFL_DATASET_ID = "wofl"
 """The dataset identifier for water observations feature layer (WOFL)."""

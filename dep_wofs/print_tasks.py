@@ -7,9 +7,8 @@ log marks as complete, or as having no input data, are left out.
 import json
 import sys
 from itertools import product
-from typing import Annotated, Optional, cast
+from typing import Annotated, Optional
 
-from geopandas import GeoDataFrame
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
 from dep_tools.grids import gadm_union, grid as dep_grid
@@ -46,7 +45,11 @@ def main(
             it, so that every tile is included.
         filter_using_log: Whether to leave out tiles the log marks as complete.
     """
-    this_grid = dep_land_tiles() if grid == "dep" else landsat_grid()
+    this_grid = (
+        dep_grid(intersect_with=gadm_union(), return_type="GeoDataFrame")
+        if grid == "dep"
+        else landsat_grid()
+    )
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
@@ -95,14 +98,6 @@ def main(
         params = params[0 : int(limit)]
 
     json.dump(params, sys.stdout)
-
-
-def dep_land_tiles() -> GeoDataFrame:
-    """DEP grid tiles that touch land, one row per tile."""
-    return cast(
-        GeoDataFrame,
-        dep_grid(intersect_with=gadm_union(), return_type="GeoDataFrame"),
-    )
 
 
 if __name__ == "__main__":
