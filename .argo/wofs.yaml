@@ -15,7 +15,12 @@ spec:
     annotations:
       karpenter.sh/do-not-disrupt: "true"
   nodeSelector:
-    karpenter.sh/capacity-type: "spot"
+    dep/workload: data-processing
+  tolerations:
+  - key: dep/workload
+    operator: Equal
+    value: data-processing
+    effect: NoSchedule
   hostAliases:
     - ip: "52.92.184.90"
       hostnames:
@@ -48,6 +53,8 @@ spec:
                 value: "{{ workflow.parameters.version }}"
               - name: dataset-id
                 value: "wofs_summary_annual"
+              - name: overwrite-existing-log
+                value: "False"
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofs-tile
@@ -73,6 +80,7 @@ spec:
       - name: years
       - name: version
       - name: dataset-id
+      - name: overwrite-existing-log
     container:
       image: "ghcr.io/digitalearthpacific/dep-wofs:{{ workflow.parameters.image-tag }}"
       imagePullPolicy: IfNotPresent
@@ -91,6 +99,8 @@ spec:
         - "{{ inputs.parameters.limit }}"
         - --dataset-id
         - "{{ inputs.parameters.dataset-id }}"
+        - --overwrite-existing-log
+        - "{{ inputs.parameters.overwrite-existing-log }}"
   - name: process-wofs-tile
     inputs:
       parameters:

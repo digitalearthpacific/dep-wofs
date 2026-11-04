@@ -9,14 +9,17 @@ spec:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
   parallelism: 100
-  activeDeadlineSeconds: 36000 
-  tolerations:
-  - key: digitalearthpacific.org/node-purpose
-    operator: Equal
-    value: argo
-    effect: NoSchedule
+  activeDeadlineSeconds: 36000
+  podMetadata:
+    annotations:
+      karpenter.sh/do-not-disrupt: "true"
   nodeSelector:
-    karpenter.sh/capacity-type: "spot"
+    dep/workload: data-processing
+  tolerations:
+  - key: dep/workload
+    operator: Equal
+    value: data-processing
+    effect: NoSchedule
   arguments:
     parameters:
     - name: version

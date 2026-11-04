@@ -1,7 +1,7 @@
 """Print the tiles that need to be processed as a JSON list.
 
 The Argo workflows use this list to start one job per tile. Tiles that the S3
-log marks as complete are left out.
+log marks as complete, or as having no input data, are left out.
 """
 
 import json
@@ -68,8 +68,14 @@ def main(
             cloud_handler=S3Handler,
         )
 
+        # "no items found" means there is no input data, so retrying won't help
         grid_subset = (
-            filter_by_log(this_grid, logger.parse_log(), retry_errors)
+            filter_by_log(
+                this_grid,
+                logger.parse_log(),
+                retry_errors,
+                non_error_statuses=["complete", "no items found"],
+            )
             if filter_using_log
             else this_grid
         )

@@ -45,6 +45,7 @@ def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
         item.properties["landsat:wrs_row"],
     )
     if not object_exists(bucket=bucket, key=itempath.stac_path(tile_id)):
+        fix_ard_bucket_hrefs(item)
         try:
             loader = OdcLoader(
                 dtype="uint16",
@@ -80,3 +81,21 @@ def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
                 key=str(daily_log_path),
                 client=boto3_client,
             )
+
+
+def fix_ard_bucket_hrefs(item: Item) -> None:
+    """Point asset links at the bucket where the Landsat files actually are.
+
+    Some Tier 2 items in the USGS STAC API give S3 links in the
+    ``usgs-landsat-ard`` bucket, but the files are in ``usgs-landsat`` at the
+    same path. Reading the wrong bucket fails with "Access Denied". For example:
+    https://landsatlook.usgs.gov/stac-server/collections/landsat-c2l2-sr/items/LC08_L2SR_076069_20201231_20210308_02_T2_SR
+
+    Args:
+        item: The Landsat Collection 2 Level 2 STAC item. Changed in place.
+    """
+    wrong_prefix = "s3://usgs-landsat-ard/collection02/level-2/"
+    right_prefix = "s3://usgs-landsat/collection02/level-2/"
+    for asset in item.assets.values():
+        if asset.href.startswith(wrong_prefix):
+            asset.href = asset.href.replace(wrong_prefix, right_prefix, 1)

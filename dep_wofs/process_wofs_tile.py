@@ -5,6 +5,7 @@ Used by .argo/wofs.yaml.
 
 from typing import cast
 from typing_extensions import Annotated
+import warnings
 
 import boto3
 from distributed import Client
@@ -12,6 +13,7 @@ from odc.geo.gridspec import GridSpec
 from typer import Option, run
 
 from cloud_logger import CsvLogger, S3Handler
+from dep_tools.exceptions import EmptyCollectionError
 from dep_tools.grids import PACIFIC_GRID_30
 from dep_tools.loaders import OdcLoader
 from dep_tools.namers import S3ItemPath
@@ -98,6 +100,11 @@ def main(
                 with_eo=True,
             ),
         ).run()
+    except EmptyCollectionError as e:
+        logger.error([id, "no items found", e])
+        warnings.warn("No stac items found, exiting")
+        # Don't reraise, it just means there's no data
+        return None
     except Exception as e:
         logger.error([id, "error", e])
         raise e
