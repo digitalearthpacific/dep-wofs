@@ -126,10 +126,10 @@ must be run in order.
 3. **Make the annual summary** with [wofs.yaml](.argo/wofs.yaml). Set `years` to
    `"2026"` and run.
 4. **Index the annual summaries.** Submit `stac-items-ingest` with `prefix` set
-   to `dep_ls_wofs_summary_annual/0-2-0`.
+   to `dep_ls_wofs_summary_annual/0-2-1` (or the current version).
 5. **Make the all-time summary** with
    [wofs_full_history.yml](.argo/wofs_full_history.yml). Set `years` to
-   `"1984/2026"` and bump `version` (e.g. `0.2.0` to `0.2.1`), then run. A
+   `"1984/2026"` and bump `version` (e.g. `0.2.1` to `0.2.2`), then run. A
    new version is required for this workflow because the data are being replaced,
    not supplemented like for WOfL and annual WOfS.
 6. **Remove the previous all-time summary from STAC.** Submit `stac-delete-items`
@@ -147,6 +147,12 @@ In every workflow, also check that:
 
 - `image-tag` is the latest released image. If you make any changes in this 
     repo, this will need to be updated with the new tag.
-- `version` matches `VERSION` in [config.py](dep_wofs/config.py), except in
-  `wofs_full_history.yml`, which is bumped every year (step 5). The prefixes
-  above use the version with dots replaced by dashes.
+- `version` is unchanged for WOfL and annual WOfS, unless existing years are
+  being reprocessed. New years are added to the same STAC collection whatever
+  version they were written under, so one collection can hold several versions.
+  WOfL workflows use `VERSION` in [config.py](dep_wofs/config.py), and
+  `wofs_full_history.yml` is bumped every year (step 5). The prefixes above use
+  the version with dots replaced by dashes.
+- Don't re-index an older prefix after a newer one for the same years. Item IDs
+  don't include the version, so indexing replaces matching items and the last
+  load wins.

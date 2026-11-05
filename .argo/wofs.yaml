@@ -30,8 +30,10 @@ spec:
         - "dep-public-data.s3.us-west-2.amazonaws.com"
   arguments:
     parameters:
+      # I bumped this version for the current backfill
+      # because we are making new summaries for 2020-2023
     - name: version
-      value: "0.2.0"  # The version of the data product being made
+      value: "0.2.1"  
     - name: image-tag
       value: "0.2.2"
   templates:
@@ -54,7 +56,7 @@ spec:
               - name: dataset-id
                 value: "wofs_summary_annual"
               - name: overwrite-existing-log
-                value: "True"
+                value: "False"
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofs-tile
