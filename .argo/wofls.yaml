@@ -25,7 +25,7 @@ spec:
     - name: version
       value: "0.2.0" 
     - name: image-tag
-      value: "v0.2.3"
+      value: "v0.2.4"
   templates:
   - name: loop-map-wofls
     retryStrategy:
@@ -40,7 +40,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2021_2026"
+                value: "2025"
               - name: grid
                 value: "ls"
               - name: version

@@ -8,7 +8,7 @@ spec:
   podGC:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
-  parallelism: 20
+  parallelism: 500
   podMetadata:
     labels:
       app: wofs
@@ -33,9 +33,9 @@ spec:
       # I bumped this version for the current backfill
       # because we are making new summaries for 2020-2023
     - name: version
-      value: "0.2.1"  
+      value: "0.2.0"  
     - name: image-tag
-      value: "v0.2.3"
+      value: "v0.2.4"
   templates:
   - name: loop-map-wofs
     retryStrategy:
@@ -50,7 +50,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2020" 
+                value: "2025" 
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: dataset-id
