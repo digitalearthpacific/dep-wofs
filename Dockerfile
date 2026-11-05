@@ -1,24 +1,18 @@
-FROM ghcr.io/osgeo/gdal:ubuntu-full-3.8.4
+FROM ghcr.io/astral-sh/uv:python3.10-bookworm
 
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-dev \
-    git \
-    libpq-dev \
-    ca-certificates \
-    build-essential \
-    && apt-get autoclean \
-    && apt-get autoremove \
-    && rm -rf /var/lib/{apt,dpkg,cache,log}
-
-
-ADD . /tmp/dep-wofs
-WORKDIR /tmp
-RUN pip install --no-cache-dir --upgrade pip && pip install ./dep-wofs
-
-ADD . /code
+# Use the image's Python instead of downloading the one in .python-version
+ENV UV_PYTHON=/usr/local/bin/python3 UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /code
 
-# Don't use old pygeos
-ENV USE_PYGEOS=0
+# Install dependencies before copying the source so this layer stays cached
+# when only code changes
+COPY pyproject.toml uv.lock /code/
+RUN uv sync --frozen --no-dev --no-install-project
+
+ADD . /code
+
+RUN uv sync --frozen --no-dev
+
+# Argo calls `python dep_wofs/...`, so the project venv must come first
+ENV PATH="/code/.venv/bin:$PATH"

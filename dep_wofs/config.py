@@ -1,8 +1,22 @@
+"""Settings shared by the processing scripts.
+
+The output bucket and STAC root can be set with the WOFS_BUCKET and
+OUTPUT_COLLECTION_ROOT environment variables.
+"""
+
 import os
 
 BUCKET = os.environ.get("WOFS_BUCKET", "dep-public-data")
+"""The output bucket. Use dep-public-data for production."""
+
 VERSION = "0.2.0"
+"""The default WOfL version. The annual and all-time summaries set their own
+version in their Argo workflows, so it can differ from this."""
+
 WOFL_DATASET_ID = "wofl"
+"""The dataset identifier for water observations feature layer (WOFL)."""
+
 OUTPUT_COLLECTION_ROOT = os.environ.get(
     "OUTPUT_COLLECTION_ROOT", "https://stac.digitalearthpacific.org"
 )
+"""The root path of the stac collections."""

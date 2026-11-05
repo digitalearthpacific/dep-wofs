@@ -9,18 +9,23 @@ spec:
     strategy: OnPodSuccess
     deleteDelayDuration: 600s
   parallelism: 100
-  activeDeadlineSeconds: 36000 
+  activeDeadlineSeconds: 36000
+  podMetadata:
+    annotations:
+      karpenter.sh/do-not-disrupt: "true"
+  nodeSelector:
+    dep/workload: data-processing
   tolerations:
-  - key: digitalearthpacific.org/node-purpose
+  - key: dep/workload
     operator: Equal
-    value: argo
+    value: data-processing
     effect: NoSchedule
   arguments:
     parameters:
     - name: version
       value: "0.2.0" 
     - name: image-tag
-      value: "0.2.0dev4"
+      value: "0.2.2"
   templates:
   - name: loop-map-wofls
     retryStrategy:
@@ -34,8 +39,8 @@ spec:
             parameters:
               - name: limit
                 value: "9999"
-              - name: datetime
-                value: "2014_2024"
+              - name: years
+                value: "2020_2026"
               - name: grid
                 value: "ls"
               - name: version
@@ -43,7 +48,7 @@ spec:
               - name: datasetid
                 value: "wofl"
               - name: overwrite-existing-log
-                value: "False"
+                value: "True"
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofl-tile
@@ -62,7 +67,7 @@ spec:
     inputs:
       parameters:
       - name: limit
-      - name: datetime
+      - name: years
       - name: version
       - name: datasetid
       - name: overwrite-existing-log
@@ -76,8 +81,8 @@ spec:
       command: [ python ]
       args:
         - dep_wofs/print_tasks.py
-        - --datetime
-        - "{{ inputs.parameters.datetime }}"
+        - --years
+        - "{{ inputs.parameters.years }}"
         - --version
         - "{{ inputs.parameters.version }}"
         - --limit
@@ -107,7 +112,7 @@ spec:
           memory: 15Gi
       command: [ python ]
       args:
-        - dep_wofs/process_wofls_tile.py
+        - dep_wofs/process_wofls_annual.py
         - --path
         - "{{ inputs.parameters.path }}"
         - --row

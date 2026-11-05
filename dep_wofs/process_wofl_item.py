@@ -1,5 +1,5 @@
-from datetime import datetime
-import json
+"""Create the WOfL (water observation feature layer) for a single Landsat scene."""
+
 from pathlib import Path
 import traceback
 import warnings
@@ -12,28 +12,26 @@ from dep_tools.task import AwsDsCogWriter, ItemStacTask
 from dep_tools.writers import AwsStacWriter
 from dep_tools.stac_utils import StacCreator
 from pystac import Item
-import s3fs
-from typer import run
 
 from config import BUCKET, WOFL_DATASET_ID, VERSION
 from processors import DepWOfSClassifier
 
 
-def load_stac_item(stac_url):
-    fs = s3fs.S3FileSystem(anon=False, requester_pays=True)
-    with fs.open(stac_url, "r") as src:
-        stac_json = json.load(src)
-    return Item.from_dict(stac_json)
+def process_wofl_item(item: Item, bucket=BUCKET, version=VERSION):
+    """Make and write the WOfL for one Landsat scene, unless it already exists.
 
+    Errors are not raised. Instead, the error message is written to S3 as a
+    ``.error.txt`` file next to the log.
 
-def process_wofl_url(item_url: str, bucket=BUCKET, version=VERSION):
-    item = load_stac_item(item_url)
-    process_wofl_item(item, bucket, version)
+    Args:
+        item: The Landsat Collection 2 Level 2 STAC item.
+        bucket: The output bucket.
+        version: The output version.
 
-
-def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
-    if isinstance(item, str):
-        item = load_stac_item(item)
+    Returns:
+        The paths written, or None if the output already existed or processing
+        failed.
+    """
     itempath = DailyItemPath(
         bucket=bucket,
         sensor="ls",
@@ -47,6 +45,7 @@ def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
         item.properties["landsat:wrs_row"],
     )
     if not object_exists(bucket=bucket, key=itempath.stac_path(tile_id)):
+        fix_ard_bucket_hrefs(item)
         try:
             loader = OdcLoader(
                 dtype="uint16",
@@ -69,7 +68,7 @@ def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
                 stac_writer=AwsStacWriter(itempath),
             ).run()
 
-        except Exception as e:
+        except Exception:
             daily_log_path = Path(itempath.log_path()).with_suffix(".error.txt")
             warnings.warn(
                 f"Error while processing item. Log file copied to {daily_log_path}"
@@ -84,5 +83,19 @@ def process_wofl_item(item: Item | str, bucket=BUCKET, version=VERSION):
             )
 
 
-if __name__ == "__main__":
-    run(process_wofl_url)
+def fix_ard_bucket_hrefs(item: Item) -> None:
+    """Change asset urls in s3://usgs-landsat-ard to s3://usgs-landsat
+
+    Some Tier 2 items in the USGS STAC API give S3 links in the
+    ``usgs-landsat-ard`` bucket, but the files are in ``usgs-landsat`` at the
+    same path. Reading the wrong bucket fails with "Access Denied". For example:
+    https://landsatlook.usgs.gov/stac-server/collections/landsat-c2l2-sr/items/LC08_L2SR_076069_20201231_20210308_02_T2_SR
+
+    Args:
+        item: The Landsat Collection 2 Level 2 STAC item. Changed in place.
+    """
+    wrong_prefix = "s3://usgs-landsat-ard/collection02/level-2/"
+    right_prefix = "s3://usgs-landsat/collection02/level-2/"
+    for asset in item.assets.values():
+        if asset.href.startswith(wrong_prefix):
+            asset.href = asset.href.replace(wrong_prefix, right_prefix, 1)

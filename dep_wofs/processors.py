@@ -1,11 +1,13 @@
+"""Processors that make WOfLs from Landsat data and summarise them into WOfS."""
+
 from odc.geo.geobox import GeoBox
 from odc.geo.geom import Geometry, unary_intersection
 from odc.stac import load
 from odc.stats.plugins.wofs import StatsWofs, StatsWofsFullHistory
 from wofs.virtualproduct import WOfSClassifier
-from xarray import Dataset
+from xarray import DataArray, Dataset
 
-from dep_tools.grids import gadm
+from dep_tools.grids import gadm_union
 from dep_tools.processors import Processor
 from dep_tools.searchers import PystacSearcher
 
@@ -25,35 +27,50 @@ def wofl(ls_c2_ds: Dataset) -> Dataset:
     return DepWOfSClassifier().compute(ls_c2_ds)
 
 
-def wofs(wofls: Dataset, mask=None) -> Dataset:
+def wofs(wofls: Dataset, mask_ocean: bool = True) -> Dataset:
     """Produce WOfS summary data from WOFL data.
 
     Args:
         wofls: A time series of WOFL data, indexed by a "time" coordinate.
-        mask: An optional data mask. If supplied, a `frequency_masked`
-            output band is included.
+        mask_ocean: Whether to add a `frequency_masked` band, where pixels
+            outside GADM land are set to NaN. Needs `wofls` to have a CRS.
 
     Returns: A Dataset with "count_wet", "count_clear" and "frequency"
-        variables. If a mask is provided, creates an additional "frequency_masked"
-        band.
+        variables, plus "frequency_masked" if `mask_ocean` is True.
     """
-    return WofsProcessor().process(wofls, mask)
+    return WofsProcessor(mask_ocean=mask_ocean).process(wofls)
 
 
 class WofsFullHistoryProcessor(Processor):
-    def process(self, wofs_annuals, area=None) -> Dataset:
-        summarizer = StatsWofsFullHistory()
-        output = summarizer.reduce(wofs_annuals)
-        if area is not None:
-            geom = unary_intersection(
-                [
-                    area.boundingbox.polygon,
-                    Geometry(
-                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
-                    ),
-                ]
-            )
-            output["frequency_masked"] = output.frequency.odc.mask(geom)
+    """Summarise annual WOfS summaries into an all-time summary.
+
+    A wrapper around `odc.stats.plugins.wofs.StatsWofsFullHistory`. Like
+    :class:`WofsProcessor`, it can add a ``frequency_masked`` band with ocean
+    masked out.
+
+    Args:
+        mask_ocean: Whether to add a ``frequency_masked`` band, where pixels
+            outside GADM land are set to NaN.
+    """
+
+    def __init__(self, mask_ocean: bool = True):
+        super().__init__()
+        self.mask_ocean = mask_ocean
+
+    def process(self, input_data: Dataset) -> Dataset:
+        """Summarise annual WOfS summaries.
+
+        Args:
+            input_data: Annual summaries with ``count_clear`` and ``count_wet``
+                variables, indexed by a "time" coordinate.
+
+        Returns:
+            A Dataset with ``count_wet``, ``count_clear`` and ``frequency`` variables,
+            plus ``frequency_masked`` if ``mask_ocean`` is True.
+        """
+        output = StatsWofsFullHistory().reduce(input_data)
+        if self.mask_ocean:
+            output["frequency_masked"] = mask_to_land(output.frequency)
         return output
 
 
@@ -61,27 +78,35 @@ class WofsProcessor(Processor):
     """A wrapper around `odc.stats.plugins.wofs.StatsWofs`. Accepts a time
     series of WOfS feature layers indexed by a "time" coordinate. In addition
     to "count_wet", "count_clear" and "frequency" variables, optionally creates
-    a masked version of frequency if a mask is provided. Useful for additional
-    area filtering. In the DEP workflow, it is used to mask out ocean waters
-    which are poorly classified by the WOfS algorithm.
+    a version of frequency with ocean masked out. In the DEP workflow, this is
+    used because ocean waters are poorly classified by the WOfS algorithm.
+
+    Args:
+        mask_ocean: Whether to add a ``frequency_masked`` band, where pixels
+            outside GADM land are set to NaN.
     """
 
-    def process(self, wofls: Dataset, area=None) -> Dataset:
+    def __init__(self, mask_ocean: bool = True):
+        super().__init__()
+        self.mask_ocean = mask_ocean
+
+    def process(self, input_data: Dataset) -> Dataset:
+        """Summarise a time series of WOfLs.
+
+        Args:
+            input_data: WOfLs indexed by a "time" coordinate.
+
+        Returns:
+            A Dataset with ``count_wet``, ``count_clear`` and ``frequency`` variables,
+            plus ``frequency_masked`` if ``mask_ocean`` is True.
+        """
         summarizer = StatsWofs()
-        prepped = wofls.groupby("time").apply(
+        prepped = input_data.groupby("time").apply(
             lambda ds: summarizer.native_transform(ds)
         )
         output = summarizer.reduce(prepped)
-        if area is not None:
-            geom = unary_intersection(
-                [
-                    area.boundingbox.polygon,
-                    Geometry(
-                        gadm().to_crs(area.crs).geometry.unary_union, crs=area.crs
-                    ),
-                ]
-            )
-            output["frequency_masked"] = output.frequency.odc.mask(geom)
+        if self.mask_ocean:
+            output["frequency_masked"] = mask_to_land(output.frequency)
         return output
 
 
@@ -95,11 +120,24 @@ class DepWOfSClassifier(WOfSClassifier, Processor):
     """
 
     def __init__(self, **kwargs):
+        """Set up the classifier for Landsat Collection 2 data.
+
+        Args:
+            **kwargs: Passed on to `wofs.virtualproduct.WOfSClassifier`.
+        """
         # Placeholder needed here so _load_dsm is called
         super().__init__(c2_scaling=True, dsm_path="this_is_a_placeholder", **kwargs)
         self._dsm = None
 
     def compute(self, data) -> Dataset:
+        """Rename bands to the names WOfSClassifier expects, then classify.
+
+        Args:
+            data: A Landsat scene with bands named as in :class:`DepWOfSClassifier`.
+
+        Returns:
+            A Dataset with a ``water`` variable, where 1 means no data.
+        """
         data = data.rename(
             {
                 "blue": "nbart_blue",
@@ -116,9 +154,21 @@ class DepWOfSClassifier(WOfSClassifier, Processor):
         return output
 
     def process(self, input_data):
+        """Same as :meth:`compute`, for use as a dep_tools Processor."""
         return self.compute(input_data)
 
     def _load_dsm(self, gbox):
+        """Load the Copernicus 30 m DEM for the given area.
+
+        The DEM is kept and reused while the area stays the same, since one area can
+        have many scenes.
+
+        Args:
+            gbox: The area, as a datacube GeoBox.
+
+        Returns:
+            A Dataset with an ``elevation`` variable.
+        """
         # This comes in as a datacube.utils.geometry._base.GeoBox, which fails
         # instance type tests downstream in odc.stac.load (also in dep_tools.utils).
         realgeobox = GeoBox(gbox.shape, gbox.affine, gbox.crs)
@@ -142,3 +192,22 @@ class DepWOfSClassifier(WOfSClassifier, Processor):
                 .persist()
             )
         return self._dsm
+
+
+def mask_to_land(data: DataArray) -> DataArray:
+    """Set pixels outside GADM land to NaN. Pixels touching the coastline are kept.
+
+    Args:
+        data: Data with a CRS, so that its GeoBox is known.
+
+    Returns:
+        The masked data.
+    """
+    geobox = data.odc.geobox
+    land = unary_intersection(
+        [
+            geobox.boundingbox.polygon,
+            Geometry(gadm_union().to_crs(geobox.crs).geometry.iloc[0], crs=geobox.crs),
+        ]
+    )
+    return data.odc.mask(land)

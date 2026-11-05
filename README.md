@@ -24,7 +24,10 @@ The subfolder contains code to process individual tiles.
 The most relevant files are:
 
 - [process_wofl_item.py](dep_wofs/process_wofl_item.py)
-  Use to create WOFL for a single Landsat STAC item.
+  Creates the WOFL for a single Landsat STAC item. `process_wofls_annual.py`
+  and `process_wofls_recent.py` call its `process_wofl_item` function, which
+  can also be imported and called directly with a STAC item (from within
+  `dep_wofs/`).
 
 - [process_wofls_annual.py](dep_wofs/process_wofls_annual.py)
   Use to create WOFLs for all Landsat scenes in a particular pathrow
@@ -40,13 +43,13 @@ The most relevant files are:
 - [process_wofs_tile.py](dep_wofs/process_wofs_tile.py)
   Use to create annual WOFS summaries for a particular pathrow.
 
-### [data/](data/)
-
-The data folder contains data necessary for processing.
-
 ### [validation/](validation/)
 
-This folder contains independent validation data and code.
+This folder contains an independent accuracy assessment of WOfL, comparing
+WOfL classes to manually labelled points, along with the labelled data. WOfL
+is much less accurate over ocean than on land, which is why the summaries
+include a land-masked `frequency_masked` band. See the
+[validation README](validation/README.md) for methods and results.
 
 ### [.argo/](.argo/)
 
@@ -68,10 +71,14 @@ This folder contains workflows used to produce all data outputs.
 
 ## Installation
 
-This project requires a separate installation of GDAL (version 3.8.x;
-3.8.4 was used for this project).
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). To set up a
+local environment:
 
-The code can be installed using pip, e.g.
+```
+uv sync
+```
+
+The code can also be installed with pip, e.g.
 
 ```
 pip install git+https://github.com/digitalearthpacific/dep-wofs.git
@@ -103,3 +110,49 @@ from dep_wofs.processors import wofs
 
 wofs = wofs(wofls_for_scenes)
 ```
+
+## Annual updates
+
+The following steps will update the three datasets for a new year. They
+must be run in order.
+
+1. **Fill in missing WOfLs** with [wofls.yaml](.argo/wofls.yaml). The daily cron
+   only looks back a few days, so it's possible to miss scenes. In the workflow, 
+    set `years` to `"2026"` and run. (Existing WOfLs are skipped, so this only 
+    processes the missing scenes.)
+2. **Index the WOfLs.** Submit the `stac-items-ingest` workflow template with
+   `bucket` set to `dep-public-data` and `prefix` set to `dep_ls_wofl/0-2-0`
+    (or the current version).
+3. **Make the annual summary** with [wofs.yaml](.argo/wofs.yaml). Set `years` to
+   `"2026"` and run.
+4. **Index the annual summaries.** Submit `stac-items-ingest` with `prefix` set
+   to `dep_ls_wofs_summary_annual/0-2-1` (or the current version).
+5. **Make the all-time summary** with
+   [wofs_full_history.yml](.argo/wofs_full_history.yml). Set `years` to
+   `"1984/2026"` and bump `version` (e.g. `0.2.1` to `0.2.2`), then run. A
+   new version is required for this workflow because the data are being replaced,
+   not supplemented like for WOfL and annual WOfS.
+6. **Remove the previous all-time summary from STAC.** Submit `stac-delete-items`
+   with `collection` set to `dep_ls_wofs_summary_alltime`.
+   This deletes the collection and all of its items.
+7. **Recreate the all-time summary collection.** Submit `stac-collection-sync` with
+   `environment` set to `production`.
+8. **Index the all-time summary.** Submit `stac-items-ingest` with `prefix` set
+   to `dep_ls_wofs_summary_alltime/0-2-1` (the new version).
+
+Steps 6 to 8 leave the all-time collection empty until indexing finishes, so
+run them together.
+
+In every workflow, also check that:
+
+- `image-tag` is the latest released image. If you make any changes in this 
+    repo, this will need to be updated with the new tag.
+- `version` is unchanged for WOfL and annual WOfS, unless existing years are
+  being reprocessed. New years are added to the same STAC collection whatever
+  version they were written under, so one collection can hold several versions.
+  WOfL workflows use `VERSION` in [config.py](dep_wofs/config.py), and
+  `wofs_full_history.yml` is bumped every year (step 5). The prefixes above use
+  the version with dots replaced by dashes.
+- Don't re-index an older prefix after a newer one for the same years. Item IDs
+  don't include the version, so indexing replaces matching items and the last
+  load wins.

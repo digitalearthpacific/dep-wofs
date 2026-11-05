@@ -1,3 +1,9 @@
+"""Print the tiles that need to be processed as a JSON list.
+
+The Argo workflows use this list to start one job per tile. Tiles that the S3
+log marks as complete, or as having no input data, are left out.
+"""
+
 import json
 import sys
 from itertools import product
@@ -5,16 +11,16 @@ from typing import Annotated, Optional
 
 import typer
 from cloud_logger import CsvLogger, filter_by_log, S3Handler
+from dep_tools.grids import gadm_union, grid as dep_grid
 from dep_tools.landsat_utils import landsat_grid
 from dep_tools.namers import S3ItemPath
 from dep_tools.parsers import bool_parser, datetime_parser
 
-import grid as wofs_grid
 from config import BUCKET
 
 
 def main(
-    years: Annotated[list[int], typer.Option(parser=datetime_parser)],
+    years: Annotated[str, typer.Option(parser=datetime_parser)],
     version: Annotated[str, typer.Option()],
     limit: Optional[str] = None,
     retry_errors: Annotated[str, typer.Option(parser=bool_parser)] = "True",
@@ -23,7 +29,27 @@ def main(
     overwrite_existing_log: Annotated[str, typer.Option(parser=bool_parser)] = "False",
     filter_using_log: Annotated[str, typer.Option(parser=bool_parser)] = "True",
 ) -> None:
-    this_grid = wofs_grid.grid if grid == "dep" else landsat_grid()
+    """Print the tiles still to process for the given years as a JSON list.
+
+    Args:
+        years: A year (``"2020"``), a range of years to process separately
+            (``"2014_2024"``), or one period (``"1984/2023"``).
+        version: The output version, e.g. ``"0.2.0"``.
+        limit: The maximum number of tasks to print. All are printed if not set.
+        retry_errors: Whether to include tiles whose last logged attempt failed.
+        grid: ``"dep"`` for the DEP grid (summary products) or ``"ls"`` for the
+            Landsat path/row grid (WOfLs).
+        dataset_id: The dataset whose log is read, e.g. ``"wofs_summary_annual"``
+            or ``"wofl"``.
+        overwrite_existing_log: Whether to delete each year's log before reading
+            it, so that every tile is included.
+        filter_using_log: Whether to leave out tiles the log marks as complete.
+    """
+    this_grid = (
+        dep_grid(intersect_with=gadm_union(), return_type="GeoDataFrame")
+        if grid == "dep"
+        else landsat_grid()
+    )
     first_name = dict(dep="column", ls="path")
     second_name = dict(dep="row", ls="row")
 
@@ -45,8 +71,14 @@ def main(
             cloud_handler=S3Handler,
         )
 
+        # "no items found" means there is no input data, so retrying won't help
         grid_subset = (
-            filter_by_log(this_grid, logger.parse_log(), retry_errors)
+            filter_by_log(
+                this_grid,
+                logger.parse_log(),
+                retry_errors,
+                non_error_statuses=["complete", "no items found"],
+            )
             if filter_using_log
             else this_grid
         )
