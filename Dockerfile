@@ -10,6 +10,9 @@ WORKDIR /code
 COPY pyproject.toml uv.lock /code/
 RUN uv sync --frozen --no-dev --no-install-project
 
+# Cache GADM boundaries inside dep_tools so pods don't download them at runtime
+RUN /code/.venv/bin/python -c "from dep_tools.grids import gadm_union; gadm_union()"
+
 ADD . /code
 
 RUN uv sync --frozen --no-dev

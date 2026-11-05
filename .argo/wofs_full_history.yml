@@ -1,6 +1,6 @@
 kind: Workflow
 metadata:
-  generateName: wofs
+  generateName: wofs-full-history-
   namespace: argo
 spec:
   entrypoint: loop-map-wofs
@@ -34,7 +34,7 @@ spec:
     - name: version
       value: "0.2.1"  # The version of the data product being made
     - name: image-tag
-      value: "0.2.2"
+      value: "v0.2.3"
     - name: output-bucket
       value: "dep-public-data"
     - name: output-collection-root
