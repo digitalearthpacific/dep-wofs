@@ -581,7 +581,7 @@ wheels = [
 [[package]]
 name = "cloud-logger"
 version = "0.2.1"
-source = { git = "https://github.com/jessjaco/cloud-logger.git#2fab6b28ef39609634a45ae7670f6e3cf2c615df" }
+source = { git = "https://github.com/jessjaco/cloud-logger.git#07eb1e7df92111444d76c97b5f552516769f9494" }
 dependencies = [
     { name = "azure-storage-blob" },
     { name = "pandas" },

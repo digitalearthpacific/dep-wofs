@@ -41,7 +41,7 @@ def main(
             Landsat path/row grid (WOfLs).
         dataset_id: The dataset whose log is read, e.g. ``"wofs_summary_annual"``
             or ``"wofl"``.
-        overwrite_existing_log: Whether to delete each year's log before reading
+        overwrite_existing_log: Whether to empty each year's log before reading
             it, so that every tile is included.
         filter_using_log: Whether to leave out tiles the log marks as complete.
     """
