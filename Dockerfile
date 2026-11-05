@@ -3,9 +3,14 @@ FROM ghcr.io/astral-sh/uv:python3.10-bookworm
 # Use the image's Python instead of downloading the one in .python-version
 ENV UV_PYTHON=/usr/local/bin/python3 UV_PYTHON_DOWNLOADS=never
 
-ADD . /code
-
 WORKDIR /code
+
+# Install dependencies before copying the source so this layer stays cached
+# when only code changes
+COPY pyproject.toml uv.lock /code/
+RUN uv sync --frozen --no-dev --no-install-project
+
+ADD . /code
 
 RUN uv sync --frozen --no-dev
 

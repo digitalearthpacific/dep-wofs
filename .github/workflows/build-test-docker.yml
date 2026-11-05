@@ -28,12 +28,14 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v6
 
-      # --locked fails if uv.lock is out of date with pyproject.toml
+      # --locked fails if uv.lock is out of date with pyproject.toml.
+      # Only the dev group (black) is needed; the Docker build installs the rest
       - name: Install dependencies
-        run: uv sync --locked
+        run: uv sync --locked --only-dev
 
+      # --no-sync stops uv run from installing the full environment
       - name: Check formatting
-        run: uv run black --check dep_wofs
+        run: uv run --no-sync black --check dep_wofs
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

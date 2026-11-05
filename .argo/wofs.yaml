@@ -48,7 +48,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2020_2026" 
+                value: "2020_2025" 
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: dataset-id
