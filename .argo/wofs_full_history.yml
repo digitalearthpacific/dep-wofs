@@ -41,9 +41,6 @@ spec:
       value: "https://stac.digitalearthpacific.org"
   templates:
   - name: loop-map-wofs
-    retryStrategy:
-      limit: "2"
-      retryPolicy: "Always"
     dag:
       tasks:
         - name: generate-ids

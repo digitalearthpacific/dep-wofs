@@ -28,9 +28,6 @@ spec:
       value: "v0.2.4"
   templates:
   - name: loop-map-wofls
-    retryStrategy:
-      limit: "2"
-      retryPolicy: "Always"
     dag:
       tasks:
         - name: generate-ids
@@ -52,6 +49,9 @@ spec:
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofl-tile
+          retryStrategy:
+            limit: "2"
+            retryPolicy: "Always"
           arguments:
             parameters:
             - name: path
