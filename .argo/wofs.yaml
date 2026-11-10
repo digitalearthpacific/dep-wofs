@@ -33,7 +33,7 @@ spec:
       # I bumped this version for the current backfill
       # because we are making new summaries for 2020-2023
     - name: version
-      value: "0.2.0"  
+      value: "0.2.1"  
     - name: image-tag
       value: "v0.2.4"
   templates:
@@ -47,7 +47,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2025" 
+                value: "2020_2024" 
               - name: version
                 value: "{{ workflow.parameters.version }}"
               - name: dataset-id
@@ -57,9 +57,6 @@ spec:
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofs-tile
-          retryStrategy:
-            limit: "2"
-            retryPolicy: "Always"
           arguments:
             parameters:
             - name: row
@@ -101,6 +98,9 @@ spec:
         - --overwrite-existing-log
         - "{{ inputs.parameters.overwrite-existing-log }}"
   - name: process-wofs-tile
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
     inputs:
       parameters:
       - name: row

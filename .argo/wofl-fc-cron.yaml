@@ -7,6 +7,11 @@ spec:
   workflowSpec:
     entrypoint: loop-map-wofls
     serviceAccountName: open-data-bucket-writer
+    # Stop Karpenter from removing a node while our pods run on it. Its
+    # consolidation deleted running pods, which failed the run and skipped indexing.
+    podMetadata:
+      annotations:
+        karpenter.sh/do-not-disrupt: "true"
     podGC:
       strategy: OnPodSuccess
       deleteDelayDuration: 600s
@@ -131,9 +136,6 @@ spec:
         tasks:
           - name: wofl
             template: process-wofl-tile
-            retryStrategy:
-              limit: "2"
-              retryPolicy: OnFailure
             arguments:
               parameters:
                 - name: path
@@ -142,9 +144,6 @@ spec:
                   value: "{{ inputs.parameters.row }}"
           - name: fc
             template: process-fc-tile
-            retryStrategy:
-              limit: "2"
-              retryPolicy: OnFailure
             arguments:
               parameters:
                 - name: path
@@ -152,6 +151,11 @@ spec:
                 - name: row
                   value: "{{ inputs.parameters.row }}"
     - name: process-wofl-tile
+      retryStrategy:
+        limit: "2"
+        # Always, because a reclaimed spot node leaves the pod in Error,
+        # which OnFailure does not retry
+        retryPolicy: Always
       inputs:
         parameters:
         - name: path
@@ -177,6 +181,11 @@ spec:
           - --number-of-days
           - "{{ workflow.parameters.number-of-days }}"
     - name: process-fc-tile
+      retryStrategy:
+        limit: "2"
+        # Always, because a reclaimed spot node leaves the pod in Error,
+        # which OnFailure does not retry
+        retryPolicy: Always
       inputs:
         parameters:
         - name: path

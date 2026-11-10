@@ -60,9 +60,6 @@ spec:
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofs-tile
-          retryStrategy:
-            limit: "2"
-            retryPolicy: "Always"
           arguments:
             parameters:
             - name: row
@@ -109,6 +106,9 @@ spec:
         - name: OUTPUT_COLLECTION_ROOT
           value: "{{ workflow.parameters.output-collection-root }}"
   - name: process-wofs-tile
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
     inputs:
       parameters:
       - name: row

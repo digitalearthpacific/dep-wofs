@@ -37,7 +37,7 @@ spec:
               - name: limit
                 value: "9999"
               - name: years
-                value: "2025"
+                value: "2021_2024"
               - name: grid
                 value: "ls"
               - name: version
@@ -49,9 +49,6 @@ spec:
         - name: process-id
           depends: generate-ids.Succeeded
           template: process-wofl-tile
-          retryStrategy:
-            limit: "2"
-            retryPolicy: "Always"
           arguments:
             parameters:
             - name: path
@@ -94,6 +91,9 @@ spec:
         - --overwrite-existing-log
         - "{{ inputs.parameters.overwrite-existing-log }}"
   - name: process-wofl-tile
+    retryStrategy:
+      limit: "2"
+      retryPolicy: "Always"
     inputs:
       parameters:
       - name: path
